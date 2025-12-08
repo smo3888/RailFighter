@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!1045 &1
+EditorBuildSettings:
+  m_ObjectHideFlags: 0
+  serializedVersion: 2
+  m_Scenes:
+  - enabled: 0
+    path: Assets/Scenes/SpriteFlight.unity
+    guid: 8c9cfa26abfee488c85f1582747f6a02
+  - enabled: 1
+    path: Assets/Scenes/Menu.unity
+    guid: 37d42968619c2a14eb760845cee36ccd
+  - enabled: 1
+    path: Assets/Scenes/GameSelect.unity
+    guid: 5197bd7cf6decd24f8faae8150a1ea1c
+  - enabled: 0
+    path: Assets/Scenes/Pong.unity
+    guid: 8c7effd79a8a7614abe13503ac04d23f
+  - enabled: 1
+    path: Assets/Scenes/RailFighterSelect.unity
+    guid: 78c307f0fd6eef54a83df43d453b34ee
+  - enabled: 1
+    path: Assets/Scenes/RailFighter1.unity
+    guid: 03a2db4ba2885b343a85424e774bb9ae
+  - enabled: 1
+    path: Assets/Scenes/RailFighter2.unity
+    guid: 0f5a0f6bdad46d7409c087371c26a514
+  - enabled: 1
+    path: Assets/Scenes/RailFighter3.unity
+    guid: 3d9a6910f7e398549b56b2aecaf9e541
+  - enabled: 1
+    path: Assets/Scenes/RailFighter4.unity
+    guid: f909b0cdd555eb4479894a89dbc01eaf
+  - enabled: 1
+    path: Assets/Scenes/RailFighter5.unity
+    guid: 95a50853d8ae0eb448b3a428083aa565
+  m_configObjects:
+    com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
+  m_UseUCBPForAssetBundles: 0
