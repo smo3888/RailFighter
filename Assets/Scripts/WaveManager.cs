@@ -1,11 +1,17 @@
 using UnityEngine;
 using UnityEngine.UIElements;
 
-// Manages enemy waves and spawning for levels
-// Supports multiple enemy types with per-type spawn limits and screen cap
+// ============================================
+// WAVE MANAGER
+// Controls enemy spawning across waves
+// Spawns enemies at random positions away from player and other enemies
+// ============================================
+
 public class WaveManager : MonoBehaviour
 {
-    // Holds settings for each enemy type (prefab, max count per wave, enable/disable)
+    // ============================================
+    // ENEMY SPAWN SETTINGS CLASS
+    // ============================================
     [System.Serializable]
     public class EnemySpawnSettings
     {
@@ -14,60 +20,136 @@ public class WaveManager : MonoBehaviour
         public bool canSpawn = true;
     }
 
+    // ============================================
+    // WAVE SETTINGS
+    // ============================================
     [Header("Wave Settings")]
     public int currentWave = 0;
-    public int[] enemiesPerWave;              // Total enemies per wave [5, 10, 15]
+    public int[] enemiesPerWave;
 
+    // ============================================
+    // ENEMY TYPES
+    // ============================================
     [Header("Enemy Types")]
-    public EnemySpawnSettings[] enemyTypes;   // Array of different enemy types
+    public EnemySpawnSettings[] enemyTypes;
 
+    // ============================================
+    // SPAWNING SETTINGS
+    // ============================================
     [Header("Spawning")]
-    public Transform[] spawnPoints;
     public float spawnInterval = 2f;
-    public int maxEnemiesOnScreen = 10;       // Spawn cap - prevents screen flooding
+    public int maxEnemiesOnScreen = 10;
+    public float minDistanceFromPlayer = 5f;
+    public float minDistanceFromEnemies = 3f;
+    public int maxSpawnAttempts = 10;
 
-    [Header ("UI")]
+    // ============================================
+    // PLAY AREA BOUNDS
+    // ============================================
+    [Header("Play Area Bounds")]
+    public bool useManualBounds = false;
+    public float manualMinX = -10f;
+    public float manualMaxX = 13f;
+    public float manualMinY = -4.5f;
+    public float manualMaxY = 5f;
+    public float boundsPadding = 1f;
+
+    private float minX, maxX, minY, maxY;
+
+    // ============================================
+    // UI REFERENCES
+    // ============================================
+    [Header("UI")]
     public UIDocument uiDocument;
-
     private Label waveLabel;
 
+    // ============================================
+    // BORDER REFERENCES
+    // ============================================
     [Header("Borders")]
     public GameObject Border_Top;
     public GameObject Border_Bottom;
     public GameObject Border_Left;
     public GameObject Border_Right;
-    
+
+    // ============================================
+    // INTERNAL TRACKING
+    // ============================================
+    private Transform player;
     private int enemiesSpawned = 0;
     private int enemiesKilled = 0;
     private float spawnTimer = 0f;
     private int currentEnemiesAlive = 0;
-
-    // Tracks how many of each enemy type spawned this wave
-    // Resets every wave, used to enforce per-type spawn limits
     private int[] enemyTypeSpawnedCount;
+    private bool allWavesComplete = false;
 
+    // ============================================
+    // START
+    // ============================================
     void Start()
     {
-        // Initialize tracking array to match number of enemy types
         enemyTypeSpawnedCount = new int[enemyTypes.Length];
 
-        //UI 
+        GameObject playerObj = GameObject.FindWithTag("Player");
+        if (playerObj != null)
+        {
+            player = playerObj.transform;
+        }
+
+        if (useManualBounds)
+        {
+            minX = manualMinX;
+            maxX = manualMaxX;
+            minY = manualMinY;
+            maxY = manualMaxY;
+        }
+        else
+        {
+            GameObject left = GameObject.FindWithTag("LeftBorder");
+            GameObject right = GameObject.FindWithTag("RightBorder");
+            GameObject top = GameObject.FindWithTag("TopBorder");
+            GameObject bottom = GameObject.FindWithTag("BottomBorder");
+
+            if (left != null)
+            {
+                Collider2D col = left.GetComponent<Collider2D>();
+                minX = col != null ? col.bounds.max.x + boundsPadding : left.transform.position.x + boundsPadding;
+            }
+            if (right != null)
+            {
+                Collider2D col = right.GetComponent<Collider2D>();
+                maxX = col != null ? col.bounds.min.x - boundsPadding : right.transform.position.x - boundsPadding;
+            }
+            if (bottom != null)
+            {
+                Collider2D col = bottom.GetComponent<Collider2D>();
+                minY = col != null ? col.bounds.max.y + boundsPadding : bottom.transform.position.y + boundsPadding;
+            }
+            if (top != null)
+            {
+                Collider2D col = top.GetComponent<Collider2D>();
+                maxY = col != null ? col.bounds.min.y - boundsPadding : top.transform.position.y - boundsPadding;
+            }
+        }
 
         if (uiDocument != null)
         {
-            waveLabel = uiDocument.rootVisualElement.Q<Label > ("WaveLabel");
+            waveLabel = uiDocument.rootVisualElement.Q<Label>("WaveLabel");
         }
-        
 
         StartWave(0);
-
-       
     }
 
+    // ============================================
+    // UPDATE
+    // ============================================
     void Update()
     {
-        // Only spawn if we haven't hit wave total AND not at screen cap
-        // This prevents overwhelming the player
+        if (allWavesComplete)
+        {
+            return;
+        }
+
         if (enemiesSpawned < enemiesPerWave[currentWave] &&
             currentEnemiesAlive < maxEnemiesOnScreen)
         {
@@ -79,7 +161,6 @@ public class WaveManager : MonoBehaviour
             }
         }
 
-        // Wave complete when all enemies spawned AND all killed
         if (enemiesSpawned >= enemiesPerWave[currentWave] &&
             enemiesKilled >= enemiesPerWave[currentWave])
         {
@@ -87,6 +168,9 @@ public class WaveManager : MonoBehaviour
         }
     }
 
+    // ============================================
+    // START WAVE
+    // ============================================
     void StartWave(int waveIndex)
     {
         currentWave = waveIndex;
@@ -94,13 +178,10 @@ public class WaveManager : MonoBehaviour
         enemiesKilled = 0;
         currentEnemiesAlive = 0;
 
-        // Reset spawn counters for each enemy type
         for (int i = 0; i < enemyTypeSpawnedCount.Length; i++)
         {
             enemyTypeSpawnedCount[i] = 0;
         }
-
-        //UI
 
         if (waveLabel != null)
         {
@@ -108,10 +189,67 @@ public class WaveManager : MonoBehaviour
         }
     }
 
+    // ============================================
+    // GET SPAWN POSITION
+    // Finds position away from player AND other enemies
+    // ============================================
+    Vector3 GetSpawnPosition()
+    {
+        Vector3 spawnPos = Vector3.zero;
+
+        for (int i = 0; i < maxSpawnAttempts; i++)
+        {
+            float x = Random.Range(minX, maxX);
+            float y = Random.Range(minY, maxY);
+            spawnPos = new Vector3(x, y, 0);
+
+            // Check distance from player
+            if (player != null && Vector3.Distance(spawnPos, player.position) < minDistanceFromPlayer)
+            {
+                continue;
+            }
+
+            // Check distance from other enemies
+            bool tooCloseToEnemy = false;
+            RailFighterEnemy[] existingEnemies = FindObjectsOfType<RailFighterEnemy>();
+            foreach (RailFighterEnemy enemy in existingEnemies)
+            {
+                if (Vector3.Distance(spawnPos, enemy.transform.position) < minDistanceFromEnemies)
+                {
+                    tooCloseToEnemy = true;
+                    break;
+                }
+            }
+
+            if (!tooCloseToEnemy)
+            {
+                return spawnPos;
+            }
+        }
+
+        // Fallback - spawn on opposite side from player
+        if (player != null)
+        {
+            float centerX = (minX + maxX) / 2;
+
+            if (player.position.x < centerX)
+            {
+                spawnPos = new Vector3(maxX, Random.Range(minY, maxY), 0);
+            }
+            else
+            {
+                spawnPos = new Vector3(minX, Random.Range(minY, maxY), 0);
+            }
+        }
+
+        return spawnPos;
+    }
+
+    // ============================================
+    // SPAWN ENEMY
+    // ============================================
     void SpawnEnemy()
     {
-        // Build list of enemy types that can still spawn
-        // (toggle enabled, not at max count, prefab exists)
         System.Collections.Generic.List<int> availableTypes =
             new System.Collections.Generic.List<int>();
 
@@ -125,71 +263,70 @@ public class WaveManager : MonoBehaviour
             }
         }
 
-        // If no available types, skip spawning this frame
         if (availableTypes.Count == 0)
         {
             Debug.LogWarning("No available enemy types to spawn!");
             return;
         }
 
-        // Pick random enemy type from available list
         int randomTypeIndex = availableTypes[Random.Range(0, availableTypes.Count)];
         EnemySpawnSettings chosenEnemy = enemyTypes[randomTypeIndex];
 
-        // Pick random spawn point from array
-        Transform spawn = spawnPoints[Random.Range(0, spawnPoints.Length)];
+        Vector3 spawnPos = GetSpawnPosition();
 
-        // Create the enemy at chosen spawn point
         GameObject newEnemy = Instantiate(chosenEnemy.enemyPrefab,
-                                         spawn.position,
+                                         spawnPos,
                                          Quaternion.identity);
 
-        // Update tracking counters
         enemiesSpawned++;
         enemyTypeSpawnedCount[randomTypeIndex]++;
         currentEnemiesAlive++;
     }
 
+    // ============================================
+    // NEXT WAVE
+    // ============================================
     void NextWave()
     {
         currentWave++;
 
-        // Check if all waves complete
         if (currentWave >= enemiesPerWave.Length)
         {
-            
-
             Debug.Log("All waves complete! Time for boss!");
-            // Add boss spawn logic here later
+            allWavesComplete = true;
             return;
         }
 
-        // Start next wave
         StartWave(currentWave);
 
         if (currentWave == 3)
         {
             DestroyRightBorder();
-            Camera.main.GetComponent<CameraScroll>().StartScrolling();
-
+            CameraScroll cam = Camera.main.GetComponent<CameraScroll>();
+            if (cam != null)
+            {
+                cam.StartScrolling();
+            }
         }
-
-        
-   
     }
 
-    // Called by enemy when it dies
-    // Decrements alive count and increments kill count
+    // ============================================
+    // ENEMY KILLED
+    // ============================================
     public void EnemyKilled()
     {
         enemiesKilled++;
         currentEnemiesAlive--;
     }
 
+    // ============================================
+    // DESTROY RIGHT BORDER
+    // ============================================
     void DestroyRightBorder()
     {
-        Destroy(Border_Right);
+        if (Border_Right != null)
+        {
+            Destroy(Border_Right);
+        }
     }
-
-
 }

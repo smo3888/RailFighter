@@ -1,3 +1,3 @@
 <ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
-    <ui:Label text="Wave 1/3" name="WaveLabel" style="color: rgb(255, 255, 255); font-size: 50px; -unity-font-definition: url(&quot;project://database/Assets/Fonts/ByteBounce.ttf?fileID=12800000&amp;guid=7550c27eca0de1d4ca3c249ada4d3383&amp;type=3#ByteBounce&quot;); left: 179px; top: 501px;"/>
+    <ui:Label text="Wave 1" name="WaveLabel" style="color: rgb(255, 255, 255); font-size: 50px; -unity-font-definition: url(&quot;project://database/Assets/Fonts/ByteBounce.ttf?fileID=12800000&amp;guid=7550c27eca0de1d4ca3c249ada4d3383&amp;type=3#ByteBounce&quot;); left: 179px; top: 501px; border-left-width: 118px; border-bottom-left-radius: 4px;"/>
 </ui:UXML>

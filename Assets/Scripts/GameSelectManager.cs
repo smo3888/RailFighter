@@ -74,6 +74,15 @@ public class GameSelectManager : MonoBehaviour
             RailFighter5.clicked += LoadRailFighter5;
         }
 
+
+        //Rail Fighter Campaign Button
+
+        var RailFighterCampaign = root.Q<Button>("CampaignButton");
+        if (RailFighterCampaign != null)
+        {
+            RailFighterCampaign.clicked += LoadRailFighterSelect;
+        }
+
         // Load Scenes
 
     
@@ -132,6 +141,24 @@ public class GameSelectManager : MonoBehaviour
         {
             SceneManager.LoadScene("RailFighter5");
             Time.timeScale = 1f;
+        }
+
+        void LoadRailFighterCampaign()
+        {
+            SceneManager.LoadScene("RailFighterSelect");
+            Time.timeScale = 1f;        
+        }
+
+        void LoadRailFighterEndless()
+        {
+            SceneManager.LoadScene("RailFighterEndless");
+            Time.timeScale = 1f;        
+        }
+
+        void LoadRailFighterBossRush()
+        {
+            SceneManager.LoadScene("GameSelect");
+            Time.timeScale = 1f;        
         }
     }
 }

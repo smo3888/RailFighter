@@ -9,10 +9,10 @@ EditorBuildSettings:
     path: Assets/Scenes/SpriteFlight.unity
     guid: 8c9cfa26abfee488c85f1582747f6a02
   - enabled: 1
-    path: Assets/Scenes/Menu.unity
+    path: Assets/Fonts/Scenes/Menu.unity
     guid: 37d42968619c2a14eb760845cee36ccd
   - enabled: 1
-    path: Assets/Scenes/GameSelect.unity
+    path: Assets/Fonts/Scenes/GameSelect.unity
     guid: 5197bd7cf6decd24f8faae8150a1ea1c
   - enabled: 0
     path: Assets/Scenes/Pong.unity

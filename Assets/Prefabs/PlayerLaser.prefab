@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 6924351094555805392}
   - component: {fileID: -3212477814306072795}
   - component: {fileID: 4687239625671695708}
-  m_Layer: 9
+  m_Layer: 12
   m_Name: PlayerLaser
   m_TagString: Projectile
   m_Icon: {fileID: 0}
@@ -30,13 +30,14 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
   m_LocalPosition: {x: -5.8458667, y: 5.7052, z: 0}
-  m_LocalScale: {x: 0.31013298, y: 0.108876884, z: 1.3333334}
+  m_LocalScale: {x: 0.31013298, y: 0.108876884, z: 0}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!212 &8605524573271478743
 SpriteRenderer:
+  serializedVersion: 2
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
   m_PrefabInstance: {fileID: 0}
@@ -82,6 +83,7 @@ SpriteRenderer:
   m_SortingLayerID: 0
   m_SortingLayer: 0
   m_SortingOrder: 0
+  m_MaskInteraction: 0
   m_Sprite: {fileID: 7482667652216324306, guid: 311925a002f4447b3a28927169b83ea6, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
@@ -91,7 +93,6 @@ SpriteRenderer:
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
   m_WasSpriteAssigned: 1
-  m_MaskInteraction: 0
   m_SpriteSortPoint: 0
 --- !u!114 &6924351094555805392
 MonoBehaviour:
@@ -106,6 +107,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerLaserScript
   speed: 10
+  isEnemyLaser: 0
 --- !u!61 &-3212477814306072795
 BoxCollider2D:
   m_ObjectHideFlags: 0

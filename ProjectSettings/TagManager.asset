@@ -18,6 +18,11 @@ TagManager:
   - Rails
   - GameOver
   - 'Platform '
+  - TopBorder
+  - LeftBorder
+  - RightBorder
+  - BottomBorder
+  - Player Laser
   layers:
   - Default
   - TransparentFX
@@ -29,11 +34,11 @@ TagManager:
   - Obstacles
   - Platform
   - Projectile
+  - Enemy Laser
+  - Border
+  - Player Laser
   - 
-  - 
-  - 
-  - 
-  - 
+  - Player
   - 
   - 
   - 
@@ -54,6 +59,12 @@ TagManager:
   m_SortingLayers:
   - name: Default
     uniqueID: 0
+    locked: 0
+  - name: Health
+    uniqueID: 763622273
+    locked: 0
+  - name: Border
+    uniqueID: 3122881621
     locked: 0
   m_RenderingLayers:
   - Default

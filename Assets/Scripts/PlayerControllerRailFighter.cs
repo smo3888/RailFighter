@@ -19,8 +19,19 @@ public class PlayerControllerRailFighter : MonoBehaviour
     public float fireRate = 1f;
     private float lastFireTime = 0f;
 
+    [Header("Health")]
+    public int maxHealth = 3;
+    private int currentHealth;
+    public float invincibilityTime = 1.5f;
+    private float lastHitTime = -999f;
+
+    [Header("Health Display")]
+    public GameObject[] heartSprites;
+
+    [Header("UI")]
     public UIDocument cooldownUI;
     private ProgressBar cooldownBar;
+    private ProgressBar healthBar;
 
     private Transform currentRail;
     private float railMinX;
@@ -30,6 +41,7 @@ public class PlayerControllerRailFighter : MonoBehaviour
     {
         lastFireTime = Time.time;
         lastJumpTime = Time.time;
+        currentHealth = maxHealth;
         
         currentRail = rails[currentRailIndex];
         UpdateRailBounds();
@@ -37,20 +49,29 @@ public class PlayerControllerRailFighter : MonoBehaviour
 
         var root = cooldownUI.rootVisualElement;
         cooldownBar = root.Q<ProgressBar>("CooldownBar");
+        healthBar = root.Q<ProgressBar>("HealthBar");
+
+        if (healthBar != null)
+        {
+            healthBar.highValue = maxHealth;
+            healthBar.value = currentHealth;
+        }
+
+        UpdateHeartDisplay();
     }
 
     void Update()
     {
+        // Movement
         float horizontal = Input.GetAxisRaw("Horizontal");
 
-        // Mobile input override
         if (MobileControls.leftPressed) horizontal = -1;
         if (MobileControls.rightPressed) horizontal = 1;
 
-        transform.position += new Vector3(horizontal * moveSpeed * Time.deltaTime, 0, 0);
+        float newX = transform.position.x + (horizontal * moveSpeed * Time.deltaTime);
+        newX = Mathf.Clamp(newX, railMinX, railMaxX);
 
-        float clampedX = Mathf.Clamp(transform.position.x, railMinX, railMaxX);
-        transform.position = new Vector3(clampedX, currentRail.position.y, 0);
+        transform.position = new Vector3(newX, currentRail.position.y, 0);
 
         // Desktop rail click
         if (Input.GetMouseButtonDown(0))
@@ -58,19 +79,19 @@ public class PlayerControllerRailFighter : MonoBehaviour
             CheckRailClick();
         }
 
-        // Mobile swipe to change rails
+        // Mobile swipe rail change
         if (MobileControls.swipedUp)
         {
-            TryJumpToAdjacentRail(1);
+            TryMoveToRailAbove();
         }
         if (MobileControls.swipedDown)
         {
-            TryJumpToAdjacentRail(-1);
+            TryMoveToRailBelow();
         }
 
         UpdateCooldownBar();
 
-        // Auto-fire for mobile
+        // Auto-fire
         if (autoFireEnabled)
         {
             if (Time.time >= lastFireTime + fireRate)
@@ -81,7 +102,6 @@ public class PlayerControllerRailFighter : MonoBehaviour
         }
         else
         {
-            // Manual fire for desktop
             if (Input.GetMouseButtonDown(0))
             {
                 ShootLaser();
@@ -89,16 +109,102 @@ public class PlayerControllerRailFighter : MonoBehaviour
         }
     }
 
-    void TryJumpToAdjacentRail(int direction)
+    // ============================================
+    // HEALTH SYSTEM
+    // ============================================
+    public void TakeDamage(int damage)
+    {
+        if (Time.time < lastHitTime + invincibilityTime)
+        {
+            return;
+        }
+
+        lastHitTime = Time.time;
+        currentHealth -= damage;
+
+        if (healthBar != null)
+        {
+            healthBar.value = currentHealth;
+        }
+
+        UpdateHeartDisplay();
+
+        if (currentHealth <= 0)
+        {
+            Die();
+        }
+    }
+
+    void UpdateHeartDisplay()
+    {
+        for (int i = 0; i < heartSprites.Length; i++)
+        {
+            if (heartSprites[i] != null)
+            {
+                heartSprites[i].SetActive(i < currentHealth);
+            }
+        }
+    }
+
+    void Die()
+    {
+        GameOver.SetActive(true);
+        Destroy(gameObject);
+    }
+
+    // ============================================
+    // COLLISION
+    // ============================================
+    void OnCollisionEnter2D(Collision2D collision)
+    {
+        if (collision.gameObject.CompareTag("Obstacle"))
+        {
+            TakeDamage(1);
+        }
+    }
+
+    void OnTriggerEnter2D(Collider2D other)
+    {
+        if (other.CompareTag("Projectile"))
+        {
+            PlayerLaserScript laser = other.GetComponent<PlayerLaserScript>();
+            if (laser != null && laser.isEnemyLaser)
+            {
+                TakeDamage(1);
+                Destroy(other.gameObject);
+            }
+        }
+    }
+
+    void TryMoveToRailAbove()
     {
         if (Time.time - lastJumpTime < jumpCooldown) return;
 
-        int targetRow = railRows[currentRailIndex] + direction;
+        int currentRow = railRows[currentRailIndex];
 
-        // Find a rail in the target row
         for (int i = 0; i < rails.Length; i++)
         {
-            if (railRows[i] == targetRow)
+            if (railRows[i] == currentRow + 1)
+            {
+                currentRailIndex = i;
+                currentRail = rails[currentRailIndex];
+                UpdateRailBounds();
+                transform.position = new Vector3(transform.position.x, currentRail.position.y, 0);
+                lastJumpTime = Time.time;
+                return;
+            }
+        }
+    }
+
+    void TryMoveToRailBelow()
+    {
+        if (Time.time - lastJumpTime < jumpCooldown) return;
+
+        int currentRow = railRows[currentRailIndex];
+
+        for (int i = 0; i < rails.Length; i++)
+        {
+            if (railRows[i] == currentRow - 1)
             {
                 currentRailIndex = i;
                 currentRail = rails[currentRailIndex];
@@ -180,8 +286,9 @@ public class PlayerControllerRailFighter : MonoBehaviour
         BoxCollider2D railCollider = currentRail.GetComponent<BoxCollider2D>();
         float railWidth = railCollider.size.x * currentRail.localScale.x;
 
-        railMinX = currentRail.position.x - (railWidth / 2);
-        railMaxX = currentRail.position.x + (railWidth / 2);
+        float buffer = 0.1f;
+        railMinX = currentRail.position.x - (railWidth / 2) + buffer;
+        railMaxX = currentRail.position.x + (railWidth / 2) - buffer;
     }
 
     void AutoFireAtNearestEnemy()
@@ -203,13 +310,35 @@ public class PlayerControllerRailFighter : MonoBehaviour
             }
         }
 
-        if (closest != null)
+        if (closest == null) return;
+
+        RailFighterEnemy patroller = closest.GetComponent<RailFighterEnemy>();
+        if (patroller != null && patroller.HasEscorts())
         {
-            Vector3 direction = (closest.transform.position - transform.position).normalized;
-            Vector3 spawnPos = transform.position + (direction * 0.5f);
-            GameObject laser = Instantiate(PlayerLaser, spawnPos, Quaternion.identity);
-            laser.GetComponent<PlayerLaserScript>().SetDirection(direction);
+            EscortEnemy[] allEscorts = FindObjectsOfType<EscortEnemy>();
+            GameObject nearestEscort = null;
+            float nearestEscortDist = Mathf.Infinity;
+
+            foreach (EscortEnemy escort in allEscorts)
+            {
+                float dist = Vector3.Distance(transform.position, escort.transform.position);
+                if (dist < nearestEscortDist)
+                {
+                    nearestEscortDist = dist;
+                    nearestEscort = escort.gameObject;
+                }
+            }
+
+            if (nearestEscort != null)
+            {
+                closest = nearestEscort;
+            }
         }
+
+        Vector3 direction = (closest.transform.position - transform.position).normalized;
+        Vector3 spawnPos = transform.position + (direction * 0.5f);
+        GameObject laser = Instantiate(PlayerLaser, spawnPos, Quaternion.identity);
+        laser.GetComponent<PlayerLaserScript>().SetDirection(direction);
     }
 
     void ShootLaser()
@@ -221,10 +350,5 @@ public class PlayerControllerRailFighter : MonoBehaviour
         Vector3 spawnPos = transform.position + (direction * 0.5f);
         GameObject laser = Instantiate(PlayerLaser, spawnPos, Quaternion.identity);
         laser.GetComponent<PlayerLaserScript>().SetDirection(direction);
-    }
-
-    void OnDestroy()
-    {
-        GameOver.SetActive(true);
     }
 }

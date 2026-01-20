@@ -2,53 +2,69 @@ using UnityEngine;
 
 public class PlayerLaserScript : MonoBehaviour
 {
-
     public float speed = 10f;
-    private Vector3 direction;
+    public bool isEnemyLaser = false;
+    
     private Rigidbody2D rb;
     private Transform ignoreRail;
     
-    // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         Destroy(gameObject, 3f);
     }
 
-    // Update is called once per frame
-    void Update()
-    {
-        transform.position += direction * speed * Time.deltaTime;
-    }
-
     public void SetDirection(Vector3 dir)
     {
-        direction = dir.normalized;
+        if (rb == null)
+        {
+            rb = GetComponent<Rigidbody2D>();
+        }
 
-        float angle = Mathf.Atan2(dir.y, dir.x) * Mathf.Rad2Deg;
+        Vector3 direction = dir.normalized;
+
+        float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
         transform.rotation = Quaternion.Euler(0, 0, angle);
 
-        rb.linearVelocity = direction * speed;
+        if (rb != null)
+        {
+            rb.linearVelocity = direction * speed;
+        }
     }
 
     void OnCollisionEnter2D(Collision2D collision)
     {
-       
-        if (collision.gameObject.CompareTag("Player"))
-        {
-            return;
-        }
+        HandleCollision(collision.gameObject, collision.transform);
+    }
 
+    void OnTriggerEnter2D(Collider2D other)
+    {
+        HandleCollision(other.gameObject, other.transform);
+    }
 
-
-
-        if (collision.transform == ignoreRail)
+    void HandleCollision(GameObject obj, Transform trans)
+    {
+        if (!isEnemyLaser && obj.CompareTag("Player"))
         {
             return;
         }
         
+        if (isEnemyLaser && obj.CompareTag("Obstacle"))
+        {
+            return;
+        }
+
+        if (trans == ignoreRail)
+        {
+            return;
+        }
         
-        if (collision.gameObject.CompareTag("Rail") ||
-            collision.gameObject.CompareTag("Obstacle"))
+        if (obj.CompareTag("Rail") ||
+            obj.CompareTag("Obstacle") ||
+            obj.CompareTag("Player") ||
+            obj.CompareTag("LeftBorder") ||
+            obj.CompareTag("RightBorder") ||
+            obj.CompareTag("TopBorder") ||
+            obj.CompareTag("BottomBorder"))
         { 
             Destroy(gameObject);
         }
@@ -58,5 +74,4 @@ public class PlayerLaserScript : MonoBehaviour
     {
         ignoreRail = rail;
     }
-
 }

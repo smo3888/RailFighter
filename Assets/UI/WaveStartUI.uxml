@@ -1,0 +1,4 @@
+<ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
+    <ui:Label text="Wave 0!
+" name="WaveText" style="color: rgb(255, 255, 255); -unity-font-definition: url(&quot;project://database/Assets/Fonts/ByteBounce.ttf?fileID=12800000&amp;guid=7550c27eca0de1d4ca3c249ada4d3383&amp;type=3#ByteBounce&quot;); font-size: 80px; border-top-width: 48px; border-left-width: 525px; top: -15px; left: -17px;"/>
+</ui:UXML>
