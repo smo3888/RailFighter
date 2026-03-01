@@ -54,13 +54,15 @@ public class BasicFlyerEnemy : MonoBehaviour
             Die();
         }
     }
-
+    
     // ============================================
     // DIE
     // ============================================
     void Die()
     {
-        FindObjectOfType<WaveManager>().EnemyKilled();
+        FindObjectOfType<WaveManager>().EnemyDestroyed();
         Destroy(gameObject);
     }
+
+   
 }

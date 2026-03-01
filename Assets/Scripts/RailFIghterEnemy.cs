@@ -6,8 +6,7 @@ public class RailFighterEnemy : MonoBehaviour
     // ============================================
     // REFERENCES
     // ============================================
-    public UIDocument HealthBar;
-    private ProgressBar Health;
+    
 
     // ============================================
     // BASIC STATS
@@ -89,9 +88,11 @@ public class RailFighterEnemy : MonoBehaviour
     // ============================================
     void Start()
     {
-        var root = HealthBar.rootVisualElement;
-        Health = root.Q<ProgressBar>("Health");
-        Health.value = health;
+
+        FindObjectOfType<WaveManager>().EnemySpawned();
+
+
+    
 
         player = GameObject.FindGameObjectWithTag("Player").transform;
 
@@ -261,7 +262,7 @@ public class RailFighterEnemy : MonoBehaviour
         }
 
         ClampToPlayArea();
-        UpdateHealthBarPosition();
+        
     }
 
     // ============================================
@@ -395,7 +396,7 @@ public class RailFighterEnemy : MonoBehaviour
             }
 
             health -= 1;
-            Health.value = health;
+           
 
             Destroy(collision.gameObject);
 
@@ -409,20 +410,16 @@ public class RailFighterEnemy : MonoBehaviour
     // ============================================
     // UPDATE HEALTH BAR POSITION
     // ============================================
-    void UpdateHealthBarPosition()
-    {
-        Vector2 screenPos = Camera.main.WorldToScreenPoint(transform.position + new Vector3(0, 0.5f, 0));
-        Health.style.left = screenPos.x - 25;
-        Health.style.top = Screen.height - screenPos.y;
-        Health.value = health;
-    }
+    
 
     // ============================================
     // DIE
     // ============================================
     void Die()
     {
-        FindObjectOfType<WaveManager>().EnemyKilled();
+        FindObjectOfType<WaveManager>().EnemyDestroyed();
         Destroy(gameObject);
     }
+
+
 }

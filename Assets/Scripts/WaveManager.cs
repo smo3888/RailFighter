@@ -1,14 +1,36 @@
 using UnityEngine;
 using UnityEngine.UIElements;
-
-// ============================================
-// WAVE MANAGER
-// Controls enemy spawning across waves
-// Spawns enemies at random positions away from player and other enemies
-// ============================================
+using System.Collections;
+using System.Collections.Generic;
 
 public class WaveManager : MonoBehaviour
 {
+    // ============================================
+    // WAVE CLASS - Configurable per wave
+    // ============================================
+    [System.Serializable]
+    public class Wave
+    {
+        [Header("Wave Settings")]
+        public int totalEnemies = 10;
+
+        [Header("Enemy Types")]
+        public EnemySpawnSettings[] allowedEnemies;
+
+        [Header("Special Enemies - Turrets")]
+        public bool spawnTurrets = false;
+        public int maxTurrets = 0;
+        public float turretSpawnInterval = 10f;
+
+        [Header("Special Enemies - Eagles")]
+        public bool spawnEagles = false;
+        public int maxEagles = 0;
+        public float eagleSpawnInterval = 5f;
+
+        [Header("Spawn Rate")]
+        public float enemySpawnInterval = 2f;
+    }
+
     // ============================================
     // ENEMY SPAWN SETTINGS CLASS
     // ============================================
@@ -21,23 +43,23 @@ public class WaveManager : MonoBehaviour
     }
 
     // ============================================
-    // WAVE SETTINGS
+    // WAVES ARRAY
     // ============================================
-    [Header("Wave Settings")]
-    public int currentWave = 0;
-    public int[] enemiesPerWave;
+    [Header("Waves")]
+    public Wave[] waves;
 
     // ============================================
-    // ENEMY TYPES
+    // SPECIAL ENEMY PREFABS
     // ============================================
-    [Header("Enemy Types")]
-    public EnemySpawnSettings[] enemyTypes;
+    [Header("Special Enemies")]
+    public GameObject turretPrefab;
+    public TurretSpawnPoint[] turretSpawnPoints;
+    public GameObject EnemyLockonPrefab;
 
     // ============================================
     // SPAWNING SETTINGS
     // ============================================
     [Header("Spawning")]
-    public float spawnInterval = 2f;
     public int maxEnemiesOnScreen = 10;
     public float minDistanceFromPlayer = 5f;
     public float minDistanceFromEnemies = 3f;
@@ -62,6 +84,7 @@ public class WaveManager : MonoBehaviour
     [Header("UI")]
     public UIDocument uiDocument;
     private Label waveLabel;
+    private Label enemyLabel;
 
     // ============================================
     // BORDER REFERENCES
@@ -76,20 +99,25 @@ public class WaveManager : MonoBehaviour
     // INTERNAL TRACKING
     // ============================================
     private Transform player;
+    private int currentWave = 0;
     private int enemiesSpawned = 0;
-    private int enemiesKilled = 0;
     private float spawnTimer = 0f;
-    private int currentEnemiesAlive = 0;
+    public int activeEnemyCount = 0;
     private int[] enemyTypeSpawnedCount;
     private bool allWavesComplete = false;
+    private bool waveSpawningComplete = false;
+
+    // Special enemy tracking
+    private int turretsSpawned = 0;
+    private int eaglesSpawned = 0;
+    private float nextTurretSpawnTime;
+    private float nextEagleSpawnTime;
 
     // ============================================
     // START
     // ============================================
     void Start()
     {
-        enemyTypeSpawnedCount = new int[enemyTypes.Length];
-
         GameObject playerObj = GameObject.FindWithTag("Player");
         if (playerObj != null)
         {
@@ -135,6 +163,7 @@ public class WaveManager : MonoBehaviour
         if (uiDocument != null)
         {
             waveLabel = uiDocument.rootVisualElement.Q<Label>("WaveLabel");
+            enemyLabel = uiDocument.rootVisualElement.Q<Label>("EnemyLabel");
         }
 
         StartWave(0);
@@ -150,21 +179,68 @@ public class WaveManager : MonoBehaviour
             return;
         }
 
-        if (enemiesSpawned < enemiesPerWave[currentWave] &&
-            currentEnemiesAlive < maxEnemiesOnScreen)
+        // SAFETY CHECK - prevent array out of bounds
+        if (currentWave >= waves.Length)
+        {
+            allWavesComplete = true;
+            return;
+        }
+
+        Wave currentWaveData = waves[currentWave];
+
+        // Check if all spawning is complete
+        if (!waveSpawningComplete)
+        {
+            if (enemiesSpawned >= currentWaveData.totalEnemies &&
+                turretsSpawned >= currentWaveData.maxTurrets &&
+                eaglesSpawned >= currentWaveData.maxEagles)
+            {
+                waveSpawningComplete = true;
+            }
+        }
+
+        // Spawn regular enemies
+        if (enemiesSpawned < currentWaveData.totalEnemies &&
+            activeEnemyCount < maxEnemiesOnScreen)
         {
             spawnTimer += Time.deltaTime;
-            if (spawnTimer >= spawnInterval)
+            if (spawnTimer >= currentWaveData.enemySpawnInterval)
             {
                 SpawnEnemy();
                 spawnTimer = 0f;
             }
         }
 
-        if (enemiesSpawned >= enemiesPerWave[currentWave] &&
-            enemiesKilled >= enemiesPerWave[currentWave])
+        // Turret Spawning (if enabled and under limit)
+        if (currentWaveData.spawnTurrets &&
+            turretsSpawned < currentWaveData.maxTurrets &&
+            Time.time >= nextTurretSpawnTime)
+        {
+            SpawnTurret();
+            turretsSpawned++;
+            nextTurretSpawnTime = Time.time + currentWaveData.turretSpawnInterval;
+        }
+
+        // Eagle Spawning (if enabled and under limit)
+        if (currentWaveData.spawnEagles &&
+            eaglesSpawned < currentWaveData.maxEagles &&
+            Time.time >= nextEagleSpawnTime)
+        {
+            SpawnEagleLockOn();
+            eaglesSpawned++;
+            nextEagleSpawnTime = Time.time + currentWaveData.eagleSpawnInterval;
+        }
+
+        // Only check wave completion if spawning is done AND all enemies dead
+        if (waveSpawningComplete && activeEnemyCount <= 0)
         {
             NextWave();
+        }
+
+        // Update UI
+        if (enemyLabel != null)
+        {
+            enemyLabel.text = "Enemies " + activeEnemyCount;
         }
     }
 
@@ -175,23 +251,27 @@ public class WaveManager : MonoBehaviour
     {
         currentWave = waveIndex;
         enemiesSpawned = 0;
-        enemiesKilled = 0;
-        currentEnemiesAlive = 0;
+        turretsSpawned = 0;
+        eaglesSpawned = 0;
+        waveSpawningComplete = false;
 
-        for (int i = 0; i < enemyTypeSpawnedCount.Length; i++)
-        {
-            enemyTypeSpawnedCount[i] = 0;
-        }
+        Wave currentWaveData = waves[currentWave];
+
+        // Initialize enemy type counters for this wave
+        enemyTypeSpawnedCount = new int[currentWaveData.allowedEnemies.Length];
 
         if (waveLabel != null)
         {
-            waveLabel.text = "Wave " + (currentWave + 1) + "/" + enemiesPerWave.Length;
+            waveLabel.text = "Wave " + (currentWave + 1);
         }
+
+        // Reset special enemy timers
+        nextTurretSpawnTime = Time.time + currentWaveData.turretSpawnInterval;
+        nextEagleSpawnTime = Time.time + currentWaveData.eagleSpawnInterval;
     }
 
     // ============================================
     // GET SPAWN POSITION
-    // Finds position away from player AND other enemies
     // ============================================
     Vector3 GetSpawnPosition()
     {
@@ -203,13 +283,11 @@ public class WaveManager : MonoBehaviour
             float y = Random.Range(minY, maxY);
             spawnPos = new Vector3(x, y, 0);
 
-            // Check distance from player
             if (player != null && Vector3.Distance(spawnPos, player.position) < minDistanceFromPlayer)
             {
                 continue;
             }
 
-            // Check distance from other enemies
             bool tooCloseToEnemy = false;
             RailFighterEnemy[] existingEnemies = FindObjectsOfType<RailFighterEnemy>();
             foreach (RailFighterEnemy enemy in existingEnemies)
@@ -227,7 +305,6 @@ public class WaveManager : MonoBehaviour
             }
         }
 
-        // Fallback - spawn on opposite side from player
         if (player != null)
         {
             float centerX = (minX + maxX) / 2;
@@ -250,14 +327,14 @@ public class WaveManager : MonoBehaviour
     // ============================================
     void SpawnEnemy()
     {
-        System.Collections.Generic.List<int> availableTypes =
-            new System.Collections.Generic.List<int>();
+        Wave currentWaveData = waves[currentWave];
+        List<int> availableTypes = new List<int>();
 
-        for (int i = 0; i < enemyTypes.Length; i++)
+        for (int i = 0; i < currentWaveData.allowedEnemies.Length; i++)
         {
-            if (enemyTypes[i].canSpawn &&
-                enemyTypeSpawnedCount[i] < enemyTypes[i].maxSpawnCount &&
-                enemyTypes[i].enemyPrefab != null)
+            if (currentWaveData.allowedEnemies[i].canSpawn &&
+                enemyTypeSpawnedCount[i] < currentWaveData.allowedEnemies[i].maxSpawnCount &&
+                currentWaveData.allowedEnemies[i].enemyPrefab != null)
             {
                 availableTypes.Add(i);
             }
@@ -270,17 +347,14 @@ public class WaveManager : MonoBehaviour
         }
 
         int randomTypeIndex = availableTypes[Random.Range(0, availableTypes.Count)];
-        EnemySpawnSettings chosenEnemy = enemyTypes[randomTypeIndex];
+        EnemySpawnSettings chosenEnemy = currentWaveData.allowedEnemies[randomTypeIndex];
 
         Vector3 spawnPos = GetSpawnPosition();
 
-        GameObject newEnemy = Instantiate(chosenEnemy.enemyPrefab,
-                                         spawnPos,
-                                         Quaternion.identity);
+        GameObject newEnemy = Instantiate(chosenEnemy.enemyPrefab, spawnPos, Quaternion.identity);
 
         enemiesSpawned++;
         enemyTypeSpawnedCount[randomTypeIndex]++;
-        currentEnemiesAlive++;
     }
 
     // ============================================
@@ -288,9 +362,20 @@ public class WaveManager : MonoBehaviour
     // ============================================
     void NextWave()
     {
+        // Heal player 1 heart on wave completion
+        GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
+        if (playerObj != null)
+        {
+            PlayerControllerRailFighter playerHealth = playerObj.GetComponent<PlayerControllerRailFighter>();
+            if (playerHealth != null)
+            {
+                playerHealth.Heal(1);
+            }
+        }
+
         currentWave++;
 
-        if (currentWave >= enemiesPerWave.Length)
+        if (currentWave >= waves.Length)
         {
             Debug.Log("All waves complete! Time for boss!");
             allWavesComplete = true;
@@ -311,15 +396,6 @@ public class WaveManager : MonoBehaviour
     }
 
     // ============================================
-    // ENEMY KILLED
-    // ============================================
-    public void EnemyKilled()
-    {
-        enemiesKilled++;
-        currentEnemiesAlive--;
-    }
-
-    // ============================================
     // DESTROY RIGHT BORDER
     // ============================================
     void DestroyRightBorder()
@@ -328,5 +404,65 @@ public class WaveManager : MonoBehaviour
         {
             Destroy(Border_Right);
         }
+    }
+
+    // ============================================
+    // SPAWN TURRET
+    // ============================================
+    void SpawnTurret()
+    {
+        List<TurretSpawnPoint> availablePoints = new List<TurretSpawnPoint>();
+        foreach (TurretSpawnPoint point in turretSpawnPoints)
+        {
+            if (!point.isOccupied)
+            {
+                availablePoints.Add(point);
+            }
+        }
+
+        if (availablePoints.Count > 0)
+        {
+            TurretSpawnPoint spawnPoint = availablePoints[Random.Range(0, availablePoints.Count)];
+            GameObject turret = Instantiate(turretPrefab, spawnPoint.transform.position, Quaternion.identity);
+            spawnPoint.isOccupied = true;
+            turret.GetComponent<TurretEnemy>().spawnPoint = spawnPoint;
+
+            // Track turret as enemy
+            EnemySpawned();
+        }
+    }
+
+    // ============================================
+    // SPAWN EAGLE LOCK-ON
+    // ============================================
+    void SpawnEagleLockOn()
+    {
+        GameObject playerObj = GameObject.FindGameObjectWithTag("Player");
+        if (playerObj != null)
+        {
+            Instantiate(EnemyLockonPrefab, playerObj.transform.position, Quaternion.identity);
+
+            // Track eagle as enemy
+            EnemySpawned();
+        }
+    }
+
+    // ============================================
+    // ENEMY TRACKING
+    // ============================================
+    public void EnemySpawned()
+    {
+        activeEnemyCount++;
+    }
+
+    public void EnemyDestroyed()
+    {
+        activeEnemyCount--;
+    }
+
+    // Backward compatibility
+    public void EnemyKilled()
+    {
+        EnemyDestroyed();
     }
 }

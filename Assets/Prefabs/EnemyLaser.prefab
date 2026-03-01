@@ -13,6 +13,7 @@ GameObject:
   - component: {fileID: 6924351094555805392}
   - component: {fileID: -3212477814306072795}
   - component: {fileID: 4687239625671695708}
+  - component: {fileID: -507793708812402279}
   m_Layer: 10
   m_Name: EnemyLaser
   m_TagString: Projectile
@@ -82,7 +83,7 @@ SpriteRenderer:
   m_GlobalIlluminationMeshLod: 0
   m_SortingLayerID: 0
   m_SortingLayer: 0
-  m_SortingOrder: 0
+  m_SortingOrder: 1
   m_MaskInteraction: 0
   m_Sprite: {fileID: 7482667652216324306, guid: 311925a002f4447b3a28927169b83ea6, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
@@ -106,7 +107,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 66c241dc394c2854590111d5ee8ea9d8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::PlayerLaserScript
-  speed: 10
+  speed: 5
   isEnemyLaser: 1
 --- !u!61 &-3212477814306072795
 BoxCollider2D:
@@ -181,3 +182,16 @@ Rigidbody2D:
   m_SleepingMode: 1
   m_CollisionDetection: 1
   m_Constraints: 0
+--- !u!114 &-507793708812402279
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6712183506915725690}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c98f689e3faf4cf468a082f3f16a87b7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Laser
+  speed: 10

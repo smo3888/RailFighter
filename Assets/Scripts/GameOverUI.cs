@@ -2,10 +2,31 @@ using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UIElements;
 
+// ============================================
+// GAME OVER UI
+// Handles button interactions on the game over screen
+// Supports returning to menu and restarting the current mode
+// ============================================
+
 public class GameOverUI : MonoBehaviour
 {
+    // ============================================
+    // REFERENCES
+    // ============================================
     private UIDocument uiDocument;
 
+    // ============================================
+    // LAYOUTS
+    // ============================================
+    private string[] endlessLayouts = {
+        "RailFighterEndless1",
+        "RailFighterEndless2",
+        "RailFighterEndless3"
+    };
+
+    // ============================================
+    // START
+    // ============================================
     void Start()
     {
         uiDocument = GetComponent<UIDocument>();
@@ -18,44 +39,30 @@ public class GameOverUI : MonoBehaviour
             backToMenuButton.clicked += LoadMenu;
         }
 
-        // Restart Button
+        // Restart Button - rerolls random layout
         var restartButton = root.Q<Button>("RestartButton");
         if (restartButton != null)
         {
-            if (SceneManager.GetActiveScene().name == "RailFighterEndless1")
-            {
-                restartButton.clicked += LoadRailFighterEndless1;
-            }
-            else
-            {
-                restartButton.clicked += LoadRailFighter1;
-            }
-        }
-
-        // Start Button
-        var startButton = root.Q<Button>("StartGame");
-        Debug.Log("Start button found: " + (startButton != null));
-        if (startButton != null)
-        {
-            startButton.clicked += LoadRailFighterEndless1;
+            restartButton.clicked += RestartRandom;
         }
     }
 
+    // ============================================
+    // SCENE LOADERS
+    // ============================================
+
+    // Returns to main menu
     void LoadMenu()
     {
         SceneManager.LoadScene("Menu");
         Time.timeScale = 1f;
     }
 
-    void LoadRailFighter1()
+    // Loads a random endless layout
+    void RestartRandom()
     {
-        SceneManager.LoadScene("RailFighter1");
-        Time.timeScale = 1f;
-    }
-
-    void LoadRailFighterEndless1()
-    {
-        SceneManager.LoadScene("RailFighterEndless1");
+        int randomIndex = Random.Range(0, endlessLayouts.Length);
+        SceneManager.LoadScene(endlessLayouts[randomIndex]);
         Time.timeScale = 1f;
     }
 }

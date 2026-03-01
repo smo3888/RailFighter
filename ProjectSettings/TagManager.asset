@@ -23,6 +23,7 @@ TagManager:
   - RightBorder
   - BottomBorder
   - Player Laser
+  - Enemy
   layers:
   - Default
   - TransparentFX
