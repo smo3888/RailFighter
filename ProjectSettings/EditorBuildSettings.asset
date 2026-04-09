@@ -36,13 +36,16 @@ EditorBuildSettings:
     path: Assets/Scenes/RailFighter5.unity
     guid: 95a50853d8ae0eb448b3a428083aa565
   - enabled: 1
-    path: Assets/Scenes/Menu.unity
+    path: Assets/Scenes/Debug Menu.unity
+    guid: 29374605e387d2c43a9525429a936010
+  - enabled: 1
+    path: Assets/Scenes/Mode Select.unity
     guid: 9621e086360cc814d80fc2c7671a5402
   - enabled: 1
     path: Assets/Scenes/RailFighterEndless1.unity
     guid: 076e4b020937d424fa919603380ebc6b
   - enabled: 1
-    path: Assets/Scenes/RailFighterEndless2.unity
+    path: Assets/Scenes/Dungeon.unity
     guid: c304146d918c73e428663914756284ce
   - enabled: 1
     path: Assets/Scenes/RailFighterEndless3.unity
@@ -56,6 +59,18 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/RailFighterBattleArena1.unity
     guid: b5f32a512cb870e4d81a208202b69daf
+  - enabled: 1
+    path: Assets/Scenes/RailFighterBattleArena2.unity
+    guid: 569b7085b35bd644c8076f9e3b04f971
+  - enabled: 1
+    path: Assets/Scenes/Test Scenes/DummyRoom.unity
+    guid: 5f7a6fe2a0169384ebb4d13d7b6f0e3e
+  - enabled: 1
+    path: Assets/Scenes/Test Scenes/ChallengeRoom.unity
+    guid: 4954b4273a70f854fa2bfbb50bb03b16
+  - enabled: 1
+    path: Assets/Scenes/Shop.unity
+    guid: 136818bbbe52b9a46bd44b0d4e8301f2
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
   m_UseUCBPForAssetBundles: 0

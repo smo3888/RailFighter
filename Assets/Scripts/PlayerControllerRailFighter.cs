@@ -1,22 +1,29 @@
-using UnityEngine;
+﻿using UnityEngine;
 using UnityEngine.UIElements;
-using UnityEngine.InputSystem;
+using System.Collections;
 
 public class PlayerControllerRailFighter : MonoBehaviour
 {
-    public enum RailType { Horizontal, Vertical }
-
     public float moveSpeed = 8f;
 
-    [Header("Rail Configuration")]
-    public Transform[] rails;
-    public int[] railRows;
-    public int[] railColumns;
-    public RailType[] railTypes;
-    public int currentRailIndex = 0;
+    [Header("Rail Jump - Search Tolerances")]
+    public float verticalHorizontalTolerance = 4f;
+    public float horizontalVerticalTolerance = 2f;
+    public float verticalMaxDistance = 10f;
+    public float horizontalMaxDistance = 10f;
+
+    [Header("Rail Jump - Edge Detection")]
+    public float edgeCancelBuffer = 0.5f;
+
+    [Header("Rail Jump - Visual")]
+    public Color highlightColor = Color.yellow;
 
     public GameObject PlayerLaser;
     public GameObject GameOver;
+
+    [Header("Spawn")]
+    [Tooltip("Drag an empty GameObject here to set the default spawn point in the dungeon.")]
+    public Transform defaultSpawnPoint;
 
     [Header("Auto-Fire Settings")]
     public bool autoFireEnabled = true;
@@ -24,7 +31,7 @@ public class PlayerControllerRailFighter : MonoBehaviour
     private float lastFireTime = 0f;
 
     [Header("Target Lock System")]
-    public TargetLockSystem targetLockSystem; // Drag the TargetLockSystem component here
+    public TargetLockSystem targetLockSystem;
 
     [Header("Health")]
     public int maxHealth = 3;
@@ -39,25 +46,83 @@ public class PlayerControllerRailFighter : MonoBehaviour
     public UIDocument cooldownUI;
     private ProgressBar healthBar;
 
-    [Header("Keyboard Double Tap")]
-    public float keyDoubleTapTime = 0.3f;
-    private float lastATapTime = -999f;
-    private float lastDTapTime = -999f;
-    private float lastLeftArrowTapTime = -999f;
-    private float lastRightArrowTapTime = -999f;
+    [Header("QTE Mode (Boss Cutscenes)")]
+    public bool qteMode = false;
 
+    private bool canShoot = true;
+    private bool isSlowed = false;
+    private float slowTimer = 0f;
+    private float normalMoveSpeed;
+    private Color normalColor;
+    private SpriteRenderer playerSpriteRenderer;
+
+    // Rail state
     private Transform currentRail;
-    private float railMinX;
-    private float railMaxX;
+    private float railMin;
+    private float railMax;
+    private bool isOnVerticalRail = false;
+
+    // Two-press jump state
+    private Transform pendingRail = null;
+    private Vector2 pendingDirection = Vector2.zero;
+    private SpriteRenderer pendingRailRenderer = null;
+    private Color pendingRailOriginalColor;
+
+    private const string HORIZONTAL_RAIL_TAG = "RailHorizontal";
+    private const string VERTICAL_RAIL_TAG = "RailVertical";
 
     void Start()
     {
         lastFireTime = Time.time;
         currentHealth = maxHealth;
 
-        currentRail = rails[currentRailIndex];
-        UpdateRailBounds();
-        transform.position = new Vector3(currentRail.position.x, currentRail.position.y, 0);
+        // Check if we have a dungeon return position to apply
+        bool hasReturnData = false;
+        if (GameManager.Instance != null)
+        {
+            string railName = GameManager.Instance.Data.dungeonReturnRailName;
+            string currentScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene().name;
+            hasReturnData = !string.IsNullOrEmpty(railName) && currentScene == GameManager.Instance.dungeonScene;
+        }
+
+        if (hasReturnData)
+        {
+            // Returning from a challenge room — coroutine will handle positioning
+            float x = GameManager.Instance.Data.dungeonReturnX;
+            float y = GameManager.Instance.Data.dungeonReturnY;
+            string railName = GameManager.Instance.Data.dungeonReturnRailName;
+
+            // Still snap to nearest rail initially so the player isn't in limbo
+            Transform nearest = FindNearestRailOfAnyType();
+            if (nearest != null)
+            {
+                currentRail = nearest;
+                isOnVerticalRail = IsVerticalRail(currentRail);
+                UpdateRailBounds();
+            }
+
+            Debug.Log($"Applying dungeon return — rail: {railName}, pos: {x}, {y}");
+            StartCoroutine(ApplyReturnPosition(x, y, railName));
+        }
+        else
+        {
+            // Normal spawn — use defaultSpawnPoint if assigned, otherwise use prefab position
+            if (defaultSpawnPoint != null)
+                transform.position = new Vector3(defaultSpawnPoint.position.x, defaultSpawnPoint.position.y, 0);
+
+            // Snap to nearest rail from spawn position
+            Transform nearest = FindNearestRailOfAnyType();
+            if (nearest != null)
+            {
+                currentRail = nearest;
+                isOnVerticalRail = IsVerticalRail(currentRail);
+                UpdateRailBounds();
+                if (isOnVerticalRail)
+                    transform.position = new Vector3(currentRail.position.x, transform.position.y, 0);
+                else
+                    transform.position = new Vector3(transform.position.x, currentRail.position.y, 0);
+            }
+        }
 
         if (healthBar != null)
         {
@@ -67,115 +132,117 @@ public class PlayerControllerRailFighter : MonoBehaviour
 
         UpdateHeartDisplay();
 
-        // Find TargetLockSystem if not assigned
         if (targetLockSystem == null)
+            targetLockSystem = FindAnyObjectByType<TargetLockSystem>();
+
+        normalMoveSpeed = moveSpeed;
+        playerSpriteRenderer = GetComponent<SpriteRenderer>();
+        if (playerSpriteRenderer)
+            normalColor = playerSpriteRenderer.color;
+    }
+
+    IEnumerator ApplyReturnPosition(float x, float y, string railName)
+    {
+        // Wait one frame so all rails are fully initialized
+        yield return null;
+
+        GameObject railObj = GameObject.Find(railName);
+
+        if (railObj != null)
         {
-            targetLockSystem = FindObjectOfType<TargetLockSystem>();
+            currentRail = railObj.transform;
+            isOnVerticalRail = IsVerticalRail(currentRail);
+            UpdateRailBounds();
+
+            if (isOnVerticalRail)
+                transform.position = new Vector3(currentRail.position.x, Mathf.Clamp(y, railMin, railMax), 0);
+            else
+                transform.position = new Vector3(Mathf.Clamp(x, railMin, railMax), currentRail.position.y, 0);
+
+            Debug.Log($"Return position applied. Rail: {railName}, final pos: {transform.position}");
         }
+        else
+        {
+            Debug.LogWarning($"Rail '{railName}' not found — falling back to nearest rail.");
+            Transform fallback = FindNearestRailOfAnyType();
+            if (fallback != null)
+            {
+                currentRail = fallback;
+                isOnVerticalRail = IsVerticalRail(currentRail);
+                UpdateRailBounds();
+                if (isOnVerticalRail)
+                    transform.position = new Vector3(currentRail.position.x, Mathf.Clamp(y, railMin, railMax), 0);
+                else
+                    transform.position = new Vector3(Mathf.Clamp(x, railMin, railMax), currentRail.position.y, 0);
+            }
+        }
+
+        // Snap camera instantly to new position so it doesn't drag across the map
+        if (Camera.main != null)
+            Camera.main.transform.position = new Vector3(transform.position.x, transform.position.y, Camera.main.transform.position.z);
+
+        // Clear the return data so it doesn't re-apply on next load
+        GameManager.Instance.Data.dungeonReturnX = 0f;
+        GameManager.Instance.Data.dungeonReturnY = 0f;
+        GameManager.Instance.Data.dungeonReturnRailName = "";
+    }
+
+    // Returns the name of the rail the player is currently standing on
+    public string GetCurrentRailName()
+    {
+        return currentRail != null ? currentRail.name : "";
     }
 
     void Update()
     {
-        // Movement - changes based on rail type
-        if (railTypes[currentRailIndex] == RailType.Horizontal)
+        if (isSlowed)
         {
-            // Horizontal rail - move left/right
-            float horizontal = Input.GetAxisRaw("Horizontal");
-
-            if (MobileControls.leftPressed) horizontal = -1;
-            if (MobileControls.rightPressed) horizontal = 1;
-
-            float newX = transform.position.x + (horizontal * moveSpeed * Time.deltaTime);
-            newX = Mathf.Clamp(newX, railMinX, railMaxX);
-
-            transform.position = new Vector3(newX, currentRail.position.y, 0);
-        }
-        else // Vertical rail
-        {
-            // Vertical rail - move up/down
-            float vertical = Input.GetAxisRaw("Vertical");
-
-            if (MobileControls.bottomPressed) vertical = -1;  // Bottom of screen = down
-            if (MobileControls.topPressed) vertical = 1;      // Top of screen = up
-
-            float newY = transform.position.y + (vertical * moveSpeed * Time.deltaTime);
-            newY = Mathf.Clamp(newY, railMinX, railMaxX);
-
-            transform.position = new Vector3(currentRail.position.x, newY, 0);
+            slowTimer -= Time.deltaTime;
+            if (slowTimer <= 0f)
+                RemoveSlowDebuff();
         }
 
-        // Mobile swipe rail change (vertical)
-        if (MobileControls.swipedUp)
+        if (!qteMode)
         {
-            TryMoveToRailAbove();
-        }
-        if (MobileControls.swipedDown)
-        {
-            TryMoveToRailBelow();
-        }
-
-        // Double tap horizontal rail change
-        if (MobileControls.doubleTapLeft)
-        {
-            TryMoveToRailLeft();
-        }
-        if (MobileControls.doubleTapRight)
-        {
-            TryMoveToRailRight();
-        }
-
-        // Keyboard rail change - Vertical (single press) - ONLY on horizontal rails
-        if (railTypes[currentRailIndex] == RailType.Horizontal)
-        {
-            if (Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow))
+            if (isOnVerticalRail)
             {
-                TryMoveToRailAbove();
+                float vertical = Input.GetAxisRaw("Vertical");
+                if (MobileControls.topPressed) vertical = 1;
+                if (MobileControls.bottomPressed) vertical = -1;
+
+                if (vertical != 0 && pendingRail != null)
+                {
+                    bool cancelUp = vertical < 0 && pendingDirection == Vector2.up;
+                    bool cancelDown = vertical > 0 && pendingDirection == Vector2.down;
+                    if (cancelUp || cancelDown) CancelPendingRail();
+                }
+
+                float newY = transform.position.y + (vertical * moveSpeed * Time.deltaTime);
+                newY = Mathf.Clamp(newY, railMin, railMax);
+                transform.position = new Vector3(currentRail.position.x, newY, 0);
             }
-            if (Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.DownArrow))
+            else
             {
-                TryMoveToRailBelow();
+                float horizontal = Input.GetAxisRaw("Horizontal");
+                if (MobileControls.leftPressed) horizontal = -1;
+                if (MobileControls.rightPressed) horizontal = 1;
+
+                if (horizontal != 0 && pendingRail != null)
+                {
+                    bool cancelLeft = horizontal > 0 && pendingDirection == Vector2.left;
+                    bool cancelRight = horizontal < 0 && pendingDirection == Vector2.right;
+                    if (cancelLeft || cancelRight) CancelPendingRail();
+                }
+
+                float newX = transform.position.x + (horizontal * moveSpeed * Time.deltaTime);
+                newX = Mathf.Clamp(newX, railMin, railMax);
+                transform.position = new Vector3(newX, currentRail.position.y, 0);
             }
         }
 
-        // Keyboard rail change - Horizontal (double tap)
-        if (Input.GetKeyDown(KeyCode.A))
-        {
-            if (Time.time - lastATapTime < keyDoubleTapTime)
-            {
-                TryMoveToRailLeft();
-            }
-            lastATapTime = Time.time;
-        }
+        HandleRailJumpInput();
 
-        if (Input.GetKeyDown(KeyCode.LeftArrow))
-        {
-            if (Time.time - lastLeftArrowTapTime < keyDoubleTapTime)
-            {
-                TryMoveToRailLeft();
-            }
-            lastLeftArrowTapTime = Time.time;
-        }
-
-        if (Input.GetKeyDown(KeyCode.D))
-        {
-            if (Time.time - lastDTapTime < keyDoubleTapTime)
-            {
-                TryMoveToRailRight();
-            }
-            lastDTapTime = Time.time;
-        }
-
-        if (Input.GetKeyDown(KeyCode.RightArrow))
-        {
-            if (Time.time - lastRightArrowTapTime < keyDoubleTapTime)
-            {
-                TryMoveToRailRight();
-            }
-            lastRightArrowTapTime = Time.time;
-        }
-
-        // Auto-fire
-        if (autoFireEnabled)
+        if (!qteMode && autoFireEnabled && canShoot)
         {
             if (Time.time >= lastFireTime + fireRate)
             {
@@ -183,267 +250,314 @@ public class PlayerControllerRailFighter : MonoBehaviour
                 AutoFireAtNearestEnemy();
             }
         }
-        else
+        else if (!qteMode && !autoFireEnabled && canShoot)
         {
             if (Input.GetMouseButtonDown(0))
-            {
                 ShootLaser();
-            }
         }
     }
 
-    // ============================================
-    // HEALTH SYSTEM
-    // ============================================
-    public void TakeDamage(int damage)
+    // ── Rail Type Detection ──────────────────────────────────────────────────
+    bool IsVerticalRail(Transform rail)
     {
-        if (Time.time < lastHitTime + invincibilityTime)
+        if (rail.CompareTag(VERTICAL_RAIL_TAG)) return true;
+        if (rail.CompareTag(HORIZONTAL_RAIL_TAG)) return false;
+
+        BoxCollider2D col = rail.GetComponent<BoxCollider2D>();
+        if (col != null)
         {
+            float width = col.bounds.size.x;
+            float height = col.bounds.size.y;
+            return height > width;
+        }
+        return false;
+    }
+
+    // ── Two-Press Rail Jump System ───────────────────────────────────────────
+    void HandleRailJumpInput()
+    {
+        if (Input.GetKeyDown(KeyCode.W) || Input.GetKeyDown(KeyCode.UpArrow) || MobileControls.swipedUp)
+            HandleDirectionPress(Vector2.up);
+        if (Input.GetKeyDown(KeyCode.S) || Input.GetKeyDown(KeyCode.DownArrow) || MobileControls.swipedDown)
+            HandleDirectionPress(Vector2.down);
+        if (Input.GetKeyDown(KeyCode.A) || Input.GetKeyDown(KeyCode.LeftArrow) || MobileControls.doubleTapLeft)
+            HandleDirectionPress(Vector2.left);
+        if (Input.GetKeyDown(KeyCode.D) || Input.GetKeyDown(KeyCode.RightArrow) || MobileControls.doubleTapRight)
+            HandleDirectionPress(Vector2.right);
+    }
+
+    void HandleDirectionPress(Vector2 direction)
+    {
+        if (pendingRail != null && pendingDirection == direction)
+        {
+            ConfirmJump();
             return;
         }
 
-        lastHitTime = Time.time;
-        currentHealth -= damage;
-
-        if (healthBar != null)
+        float edgeThreshold = 0.15f;
+        if (isOnVerticalRail)
         {
-            healthBar.value = currentHealth;
+            if (direction == Vector2.up || direction == Vector2.down)
+            {
+                bool atTopEdge = transform.position.y >= railMax - edgeThreshold;
+                bool atBottomEdge = transform.position.y <= railMin + edgeThreshold;
+                if (direction == Vector2.up && !atTopEdge) return;
+                if (direction == Vector2.down && !atBottomEdge) return;
+            }
+        }
+        else
+        {
+            if (direction == Vector2.left || direction == Vector2.right)
+            {
+                bool atLeftEdge = transform.position.x <= railMin + edgeThreshold;
+                bool atRightEdge = transform.position.x >= railMax - edgeThreshold;
+                if (direction == Vector2.left && !atLeftEdge) return;
+                if (direction == Vector2.right && !atRightEdge) return;
+            }
         }
 
-        UpdateHeartDisplay();
+        CancelPendingRail();
+        Transform best = FindNearestRailInDirection(direction);
+        if (best == null) return;
 
-        if (currentHealth <= 0)
+        pendingRail = best;
+        pendingDirection = direction;
+        pendingRailRenderer = best.GetComponent<SpriteRenderer>();
+        if (pendingRailRenderer != null)
         {
-            Die();
+            pendingRailOriginalColor = pendingRailRenderer.color;
+            pendingRailRenderer.color = highlightColor;
         }
     }
 
+    void ConfirmJump()
+    {
+        if (pendingRail == null) return;
+        if (pendingRailRenderer != null)
+            pendingRailRenderer.color = pendingRailOriginalColor;
+
+        currentRail = pendingRail;
+        isOnVerticalRail = IsVerticalRail(currentRail);
+        UpdateRailBounds();
+
+        if (isOnVerticalRail)
+            transform.position = new Vector3(currentRail.position.x, Mathf.Clamp(transform.position.y, railMin, railMax), 0);
+        else
+            transform.position = new Vector3(Mathf.Clamp(transform.position.x, railMin, railMax), currentRail.position.y, 0);
+
+        pendingRail = null;
+        pendingDirection = Vector2.zero;
+        pendingRailRenderer = null;
+
+        if (qteMode) Debug.Log("Player jumped rails during QTE!");
+    }
+
+    void CancelPendingRail()
+    {
+        if (pendingRail == null) return;
+        if (pendingRailRenderer != null)
+            pendingRailRenderer.color = pendingRailOriginalColor;
+        pendingRail = null;
+        pendingDirection = Vector2.zero;
+        pendingRailRenderer = null;
+    }
+
+    Transform FindNearestRailInDirection(Vector2 direction)
+    {
+        string[] tags = new string[] { HORIZONTAL_RAIL_TAG, VERTICAL_RAIL_TAG };
+        Transform best = null;
+        float bestDist = Mathf.Infinity;
+
+        foreach (string tag in tags)
+        {
+            foreach (GameObject railObj in GameObject.FindGameObjectsWithTag(tag))
+            {
+                Transform rail = railObj.transform;
+                if (rail == currentRail) continue;
+
+                float dx = rail.position.x - transform.position.x;
+                float dy = rail.position.y - transform.position.y;
+                bool targetIsVertical = IsVerticalRail(rail);
+
+                if (direction == Vector2.up || direction == Vector2.down)
+                {
+                    if (direction == Vector2.up && dy <= 0f) continue;
+                    if (direction == Vector2.down && dy >= 0f) continue;
+                    if (Mathf.Abs(dy) > verticalMaxDistance) continue;
+
+                    if (targetIsVertical)
+                    {
+                        if (Mathf.Abs(dx) > verticalHorizontalTolerance) continue;
+                    }
+                    else
+                    {
+                        BoxCollider2D railCol = rail.GetComponent<BoxCollider2D>();
+                        if (railCol != null)
+                        {
+                            float jumpTolerance = 1.5f;
+                            float railLeft = rail.position.x - (railCol.size.x * rail.localScale.x / 2f) - jumpTolerance;
+                            float railRight = rail.position.x + (railCol.size.x * rail.localScale.x / 2f) + jumpTolerance;
+                            if (transform.position.x < railLeft || transform.position.x > railRight) continue;
+                        }
+                    }
+                }
+                else
+                {
+                    if (direction == Vector2.left && dx >= 0f) continue;
+                    if (direction == Vector2.right && dx <= 0f) continue;
+                    if (Mathf.Abs(dy) > horizontalVerticalTolerance) continue;
+                    if (Mathf.Abs(dx) > horizontalMaxDistance) continue;
+                }
+
+                float dist = Vector2.Distance(transform.position, rail.position);
+                if (dist < bestDist)
+                {
+                    bestDist = dist;
+                    best = rail;
+                }
+            }
+        }
+        return best;
+    }
+
+    Transform FindNearestRailOfAnyType()
+    {
+        Transform nearest = null;
+        float nearestDist = Mathf.Infinity;
+        string[] tags = new string[] { HORIZONTAL_RAIL_TAG, VERTICAL_RAIL_TAG };
+
+        foreach (string tag in tags)
+        {
+            foreach (GameObject r in GameObject.FindGameObjectsWithTag(tag))
+            {
+                float dist = Vector3.Distance(transform.position, r.transform.position);
+                if (dist < nearestDist)
+                {
+                    nearestDist = dist;
+                    nearest = r.transform;
+                }
+            }
+        }
+        return nearest;
+    }
+
+    // ── Rail Bounds ──────────────────────────────────────────────────────────
+    void UpdateRailBounds()
+    {
+        BoxCollider2D col = currentRail.GetComponent<BoxCollider2D>();
+        if (col == null) return;
+
+        float buffer = 0.1f;
+        if (isOnVerticalRail)
+        {
+            railMin = col.bounds.min.y + buffer;
+            railMax = col.bounds.max.y - buffer;
+        }
+        else
+        {
+            railMin = col.bounds.min.x + buffer;
+            railMax = col.bounds.max.x - buffer;
+        }
+    }
+
+    // ── QTE ─────────────────────────────────────────────────────────────────
+    public void EnableQTEMode()
+    {
+        qteMode = true;
+        CancelPendingRail();
+        Debug.Log("QTE Mode ENABLED");
+    }
+
+    public void DisableQTEMode()
+    {
+        qteMode = false;
+        Debug.Log("QTE Mode DISABLED");
+    }
+
+    public void SetCanShoot(bool value) { canShoot = value; }
+
+    // ── Health ───────────────────────────────────────────────────────────────
+    public void TakeDamage(int damage)
+    {
+        if (Time.time < lastHitTime + invincibilityTime) return;
+        lastHitTime = Time.time;
+        currentHealth -= damage;
+        if (healthBar != null) healthBar.value = currentHealth;
+        UpdateHeartDisplay();
+        if (currentHealth <= 0) Die();
+    }
+
+    public void Heal(int amount)
+    {
+        currentHealth += amount;
+        if (currentHealth > maxHealth) currentHealth = maxHealth;
+        if (healthBar != null) healthBar.value = currentHealth;
+        UpdateHeartDisplay();
+    }
+
+    // ── Debuffs ──────────────────────────────────────────────────────────────
+    public void ApplySlowDebuff(float duration, float slowPercent, Color tintColor)
+    {
+        if (isSlowed) return;
+        isSlowed = true;
+        slowTimer = duration;
+        moveSpeed = normalMoveSpeed * (1f - slowPercent);
+        if (playerSpriteRenderer) playerSpriteRenderer.color = tintColor;
+    }
+
+    void RemoveSlowDebuff()
+    {
+        isSlowed = false;
+        slowTimer = 0f;
+        moveSpeed = normalMoveSpeed;
+        if (playerSpriteRenderer) playerSpriteRenderer.color = normalColor;
+    }
+
+    // ── UI ───────────────────────────────────────────────────────────────────
     void UpdateHeartDisplay()
     {
         for (int i = 0; i < heartSprites.Length; i++)
-        {
             if (heartSprites[i] != null)
-            {
                 heartSprites[i].SetActive(i < currentHealth);
-            }
-        }
     }
 
+    // ── Death ────────────────────────────────────────────────────────────────
     void Die()
     {
-        GameOver.SetActive(true);
+        Debug.Log("PLAYER DIED!");
+        CancelPendingRail();
+        if (GameOver != null) GameOver.SetActive(true);
         Destroy(gameObject);
     }
 
-    // ============================================
-    // COLLISION
-    // ============================================
+    // ── Collision ────────────────────────────────────────────────────────────
     void OnCollisionEnter2D(Collision2D collision)
     {
         if (collision.gameObject.CompareTag("Obstacle"))
-        {
             TakeDamage(1);
-        }
     }
 
     void OnTriggerEnter2D(Collider2D other)
     {
-        if (other.CompareTag("Projectile"))
+        if (other.CompareTag("Obstacle"))
+            TakeDamage(1);
+
+        PlayerLaserScript laser = other.GetComponent<PlayerLaserScript>();
+        if (laser != null && laser.isEnemyLaser)
         {
-            PlayerLaserScript laser = other.GetComponent<PlayerLaserScript>();
-            if (laser != null && laser.isEnemyLaser)
-            {
-                TakeDamage(1);
-                Destroy(other.gameObject);
-            }
+            TakeDamage(1);
+            Destroy(other.gameObject);
         }
     }
 
-    // ============================================
-    // RAIL JUMPING - VERTICAL
-    // ============================================
-    void TryMoveToRailAbove()
-    {
-        int currentRow = railRows[currentRailIndex];
-        int targetRow = currentRow + 1;
-
-        int bestRail = -1;
-        float bestDistance = Mathf.Infinity;
-
-        for (int i = 0; i < rails.Length; i++)
-        {
-            if (railRows[i] == targetRow)
-            {
-                float dist = Mathf.Abs(rails[i].position.x - transform.position.x);
-                if (dist < bestDistance)
-                {
-                    bestDistance = dist;
-                    bestRail = i;
-                }
-            }
-        }
-
-        if (bestRail != -1)
-        {
-            currentRailIndex = bestRail;
-            currentRail = rails[currentRailIndex];
-            UpdateRailBounds();
-            transform.position = new Vector3(transform.position.x, currentRail.position.y, 0);
-        }
-    }
-
-    void TryMoveToRailBelow()
-    {
-        int currentRow = railRows[currentRailIndex];
-        int targetRow = currentRow - 1;
-
-        int bestRail = -1;
-        float bestDistance = Mathf.Infinity;
-
-        for (int i = 0; i < rails.Length; i++)
-        {
-            if (railRows[i] == targetRow)
-            {
-                float dist = Mathf.Abs(rails[i].position.x - transform.position.x);
-                if (dist < bestDistance)
-                {
-                    bestDistance = dist;
-                    bestRail = i;
-                }
-            }
-        }
-
-        if (bestRail != -1)
-        {
-            currentRailIndex = bestRail;
-            currentRail = rails[currentRailIndex];
-            UpdateRailBounds();
-            transform.position = new Vector3(transform.position.x, currentRail.position.y, 0);
-        }
-    }
-
-    // ============================================
-    // RAIL JUMPING - HORIZONTAL
-    // ============================================
-    void TryMoveToRailLeft()
-    {
-        int currentRow = railRows[currentRailIndex];
-        int currentCol = railColumns[currentRailIndex];
-
-        int bestRail = -1;
-        int bestCol = -1;
-
-        for (int i = 0; i < rails.Length; i++)
-        {
-            if (railRows[i] == currentRow && railColumns[i] < currentCol)
-            {
-                if (bestRail == -1 || railColumns[i] > bestCol)
-                {
-                    bestCol = railColumns[i];
-                    bestRail = i;
-                }
-            }
-        }
-
-        if (bestRail != -1)
-        {
-            currentRailIndex = bestRail;
-            currentRail = rails[currentRailIndex];
-            UpdateRailBounds();
-            transform.position = new Vector3(currentRail.position.x, currentRail.position.y, 0);
-        }
-    }
-
-    void TryMoveToRailRight()
-    {
-        int currentRow = railRows[currentRailIndex];
-        int currentCol = railColumns[currentRailIndex];
-
-        int bestRail = -1;
-        int bestCol = int.MaxValue;
-
-        for (int i = 0; i < rails.Length; i++)
-        {
-            if (railRows[i] == currentRow && railColumns[i] > currentCol)
-            {
-                if (bestRail == -1 || railColumns[i] < bestCol)
-                {
-                    bestCol = railColumns[i];
-                    bestRail = i;
-                }
-            }
-        }
-
-        if (bestRail != -1)
-        {
-            currentRailIndex = bestRail;
-            currentRail = rails[currentRailIndex];
-            UpdateRailBounds();
-            transform.position = new Vector3(currentRail.position.x, currentRail.position.y, 0);
-        }
-    }
-
-    // ============================================
-    // HELPERS
-    // ============================================
-    bool IsAdjacent(int fromIndex, int toIndex)
-    {
-        int rowDiff = Mathf.Abs(railRows[fromIndex] - railRows[toIndex]);
-        int colDiff = Mathf.Abs(railColumns[fromIndex] - railColumns[toIndex]);
-
-        if (rowDiff == 0 && colDiff == 1) return true;
-        if (rowDiff == 1) return true;
-
-        return false;
-    }
-
-    int GetRailIndex(Transform rail)
-    {
-        for (int i = 0; i < rails.Length; i++)
-        {
-            if (rails[i] == rail)
-            {
-                return i;
-            }
-        }
-        return -1;
-    }
-
-    void UpdateRailBounds()
-    {
-        BoxCollider2D railCollider = currentRail.GetComponent<BoxCollider2D>();
-
-        if (railTypes[currentRailIndex] == RailType.Horizontal)
-        {
-            // Horizontal rail - clamp X position
-            float railWidth = railCollider.size.x * currentRail.localScale.x;
-            float buffer = 0.1f;
-            railMinX = currentRail.position.x - (railWidth / 2) + buffer;
-            railMaxX = currentRail.position.x + (railWidth / 2) - buffer;
-        }
-        else
-        {
-            // Vertical rail - clamp Y position
-            float railHeight = railCollider.size.y * currentRail.localScale.y;
-            float buffer = 0.1f;
-            railMinX = currentRail.position.y - (railHeight / 2) + buffer;
-            railMaxX = currentRail.position.y + (railHeight / 2) - buffer;
-        }
-    }
-
-    // ============================================
-    // SHOOTING
-    // ============================================
+    // ── Shooting ─────────────────────────────────────────────────────────────
     void AutoFireAtNearestEnemy()
     {
         GameObject targetEnemy = null;
 
-        // PRIORITY 1: Check if there's a locked target
         if (targetLockSystem != null && targetLockSystem.HasLockedTarget())
         {
             targetEnemy = targetLockSystem.GetLockedTarget();
-
-            // If locked target is dead/destroyed, clear the lock and find nearest
             if (targetEnemy == null || !targetEnemy.activeInHierarchy)
             {
                 targetLockSystem.ClearLock();
@@ -451,85 +565,61 @@ public class PlayerControllerRailFighter : MonoBehaviour
             }
         }
 
-        // PRIORITY 2: If no locked target, find nearest enemy
         if (targetEnemy == null)
         {
             GameObject[] enemies = GameObject.FindGameObjectsWithTag("Obstacle");
-
             if (enemies.Length == 0) return;
 
             GameObject closest = null;
             float closestDist = Mathf.Infinity;
-
             foreach (GameObject enemy in enemies)
             {
                 float dist = Vector3.Distance(transform.position, enemy.transform.position);
-                if (dist < closestDist)
-                {
-                    closestDist = dist;
-                    closest = enemy;
-                }
+                if (dist < closestDist) { closestDist = dist; closest = enemy; }
             }
 
             if (closest == null) return;
 
-            // Check for escorts
             RailFighterEnemy patroller = closest.GetComponent<RailFighterEnemy>();
             if (patroller != null && patroller.HasEscorts())
             {
                 EscortEnemy[] allEscorts = FindObjectsOfType<EscortEnemy>();
                 GameObject nearestEscort = null;
                 float nearestEscortDist = Mathf.Infinity;
-
                 foreach (EscortEnemy escort in allEscorts)
                 {
                     float dist = Vector3.Distance(transform.position, escort.transform.position);
-                    if (dist < nearestEscortDist)
-                    {
-                        nearestEscortDist = dist;
-                        nearestEscort = escort.gameObject;
-                    }
+                    if (dist < nearestEscortDist) { nearestEscortDist = dist; nearestEscort = escort.gameObject; }
                 }
-
-                if (nearestEscort != null)
-                {
-                    closest = nearestEscort;
-                }
+                if (nearestEscort != null) closest = nearestEscort;
             }
 
             targetEnemy = closest;
         }
 
-        // Fire at the target (either locked or nearest)
         if (targetEnemy != null)
         {
             Vector3 direction = (targetEnemy.transform.position - transform.position).normalized;
             Vector3 spawnPos = transform.position + (direction * 0.5f);
             GameObject laser = Instantiate(PlayerLaser, spawnPos, Quaternion.identity);
-            laser.GetComponent<PlayerLaserScript>().SetDirection(direction);
+            PlayerLaserScript laserScript = laser.GetComponent<PlayerLaserScript>();
+            if (laserScript != null) laserScript.SetDirection(direction);
         }
     }
 
     void ShootLaser()
     {
-        Vector3 mouseWorldPos = Camera.main.ScreenToWorldPoint(Input.mousePosition);
-        mouseWorldPos.z = 0;
-
-        Vector3 direction = (mouseWorldPos - transform.position).normalized;
-        Vector3 spawnPos = transform.position + (direction * 0.5f);
-        GameObject laser = Instantiate(PlayerLaser, spawnPos, Quaternion.identity);
-        laser.GetComponent<PlayerLaserScript>().SetDirection(direction);
+        Vector3 direction = Vector3.right;
+        GameObject laser = Instantiate(PlayerLaser, transform.position, Quaternion.identity);
+        PlayerLaserScript laserScript = laser.GetComponent<PlayerLaserScript>();
+        if (laserScript != null) laserScript.SetDirection(direction);
     }
 
-    public void Heal(int amount)
+    public int GetCurrentHealth() { return currentHealth; }
+
+    public void SetHealth(int amount)
     {
-        currentHealth = Mathf.Min(currentHealth + amount, maxHealth); // Don't exceed max
-
-        if (healthBar != null)
-        {
-            healthBar.value = currentHealth;
-        }
-
-        UpdateHeartDisplay(); // Reactivates the heart GameObject
+        currentHealth = Mathf.Clamp(amount, 0, maxHealth);
+        UpdateHeartDisplay();
     }
 }

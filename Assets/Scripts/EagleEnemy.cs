@@ -15,11 +15,6 @@ public class EagleEnemy : MonoBehaviour
         transform.rotation = Quaternion.Euler(0, 0, angle - 90);
     }
 
-    void Start()
-    {
-       
-    }
-
     void Update()
     {
         transform.position += direction * speed * Time.deltaTime;
@@ -30,16 +25,16 @@ public class EagleEnemy : MonoBehaviour
         if (other.CompareTag("Player"))
         {
             other.GetComponent<PlayerControllerRailFighter>().TakeDamage(damage);
-            // Notify wave manager before destroying
-            FindObjectOfType<WaveManager>().EnemyDestroyed();
+            WaveManager wm = FindObjectOfType<WaveManager>();
+            if (wm != null) wm.EnemyDestroyed();
             Destroy(gameObject);
         }
     }
 
     private void OnBecameInvisible()
     {
-        // Notify wave manager before destroying
-        FindObjectOfType<WaveManager>().EnemyDestroyed();
+        WaveManager wm = FindObjectOfType<WaveManager>();
+        if (wm != null) wm.EnemyDestroyed();
         Destroy(gameObject);
     }
 }

@@ -6,7 +6,7 @@ public class RailFighterEnemy : MonoBehaviour
     // ============================================
     // REFERENCES
     // ============================================
-    
+
 
     // ============================================
     // BASIC STATS
@@ -89,10 +89,11 @@ public class RailFighterEnemy : MonoBehaviour
     void Start()
     {
 
-        FindObjectOfType<WaveManager>().EnemySpawned();
+        WaveManager wm = FindObjectOfType<WaveManager>();
+        if (wm != null) wm.EnemySpawned();
 
 
-    
+
 
         player = GameObject.FindGameObjectWithTag("Player").transform;
 
@@ -262,7 +263,7 @@ public class RailFighterEnemy : MonoBehaviour
         }
 
         ClampToPlayArea();
-        
+
     }
 
     // ============================================
@@ -396,7 +397,7 @@ public class RailFighterEnemy : MonoBehaviour
             }
 
             health -= 1;
-           
+
 
             Destroy(collision.gameObject);
 
@@ -410,7 +411,7 @@ public class RailFighterEnemy : MonoBehaviour
     // ============================================
     // UPDATE HEALTH BAR POSITION
     // ============================================
-    
+
 
     // ============================================
     // DIE

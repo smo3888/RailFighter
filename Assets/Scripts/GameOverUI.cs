@@ -7,7 +7,6 @@ using UnityEngine.UIElements;
 // Handles button interactions on the game over screen
 // Supports returning to menu and restarting the current mode
 // ============================================
-
 public class GameOverUI : MonoBehaviour
 {
     // ============================================
@@ -21,7 +20,8 @@ public class GameOverUI : MonoBehaviour
     private string[] endlessLayouts = {
         "RailFighterEndless1",
         "RailFighterEndless2",
-        "RailFighterEndless3"
+        "RailFighterEndless3",
+        "RailFighterBattleArena1"
     };
 
     // ============================================
@@ -58,7 +58,7 @@ public class GameOverUI : MonoBehaviour
         Time.timeScale = 1f;
     }
 
-    // Loads a random endless layout
+    // Loads a random endless layout or boss fight
     void RestartRandom()
     {
         int randomIndex = Random.Range(0, endlessLayouts.Length);

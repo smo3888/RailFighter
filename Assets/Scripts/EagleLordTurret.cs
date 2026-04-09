@@ -20,8 +20,6 @@ public class EagleLordTurret : MonoBehaviour
         currentHealth = maxHealth;
         lastFireTime = Time.time;
         boss = GetComponentInParent<EagleLord>();
-
-        Debug.Log("Turret " + turretSide + " started. Boss found: " + (boss != null));
     }
 
     void Update()
@@ -59,10 +57,20 @@ public class EagleLordTurret : MonoBehaviour
         canShoot = false;
     }
 
+    public int GetMaxHealth()
+    {
+        return maxHealth;
+    }
+
     public void TakeDamage(int damage)
     {
         currentHealth -= damage;
-        Debug.Log("Turret " + turretSide + " took damage. HP: " + currentHealth);
+
+        // Tell boss about the damage so health bar updates immediately
+        if (boss != null)
+        {
+            boss.UpdateEncounterHealth(damage);
+        }
 
         if (currentHealth <= 0)
         {
@@ -72,16 +80,9 @@ public class EagleLordTurret : MonoBehaviour
 
     void Die()
     {
-        Debug.Log("Turret dying! Side: " + turretSide + ", Boss exists: " + (boss != null));
-
         if (boss != null && (turretSide == "Left" || turretSide == "Right"))
         {
-            Debug.Log("Calling boss.TurretDestroyed(" + turretSide + ")");
             boss.TurretDestroyed(turretSide);
-        }
-        else
-        {
-            Debug.Log("NOT calling boss - either boss is null or turret is Middle. Boss: " + (boss != null) + ", Side: " + turretSide);
         }
 
         Destroy(gameObject);

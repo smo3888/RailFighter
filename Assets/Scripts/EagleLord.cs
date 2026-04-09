@@ -16,6 +16,8 @@ public class EagleLord : MonoBehaviour
     [Header("Health")]
     [SerializeField] private int maxHealth = 30;
     private int currentHealth;
+    private int totalEncounterHealth;
+    private int currentEncounterHealth;
 
     [Header("Turrets")]
     [SerializeField] private GameObject leftTurret;
@@ -37,7 +39,7 @@ public class EagleLord : MonoBehaviour
     private float currentEagleSpawnInterval;
 
     [Header("Boss UI")]
-    [SerializeField] private GameObject bossHealthBarUI;
+    [SerializeField] private BossHealthBarUI bossHealthBarUI;
 
     private enum BossPhase { TurretsActive, MainHP, FinalStand, OffScreen }
     private BossPhase currentPhase = BossPhase.TurretsActive;
@@ -49,7 +51,25 @@ public class EagleLord : MonoBehaviour
     {
         currentHealth = maxHealth;
         bossCollider = GetComponent<Collider2D>();
-        Debug.Log("Boss started with HP: " + currentHealth + ", Tag: " + gameObject.tag);
+
+        // Calculate total encounter health (turrets + boss)
+        int turretHealth = 0;
+        EagleLordTurret[] turrets = GetComponentsInChildren<EagleLordTurret>();
+        foreach (EagleLordTurret turret in turrets)
+        {
+            turretHealth += turret.GetMaxHealth();
+        }
+
+        totalEncounterHealth = turretHealth + maxHealth;
+        currentEncounterHealth = totalEncounterHealth;
+
+        // Just initialize health, don't show bar (BossIntro handles that)
+        if (bossHealthBarUI != null)
+        {
+            bossHealthBarUI.UpdateHealth(currentEncounterHealth, totalEncounterHealth);
+        }
+
+        Debug.Log("Boss started with total encounter HP: " + totalEncounterHealth);
     }
 
     void Update()
@@ -59,7 +79,6 @@ public class EagleLord : MonoBehaviour
             HandleMovement();
         }
 
-        // Final Stand - continuous eagle spawning
         if (finalStandActive && currentPhase != BossPhase.OffScreen)
         {
             HandleFinalStandEagles();
@@ -82,7 +101,6 @@ public class EagleLord : MonoBehaviour
 
     void HandleFinalStandEagles()
     {
-        // Calculate spawn interval based on HP (lower HP = faster spawns)
         float healthPercent = (float)currentHealth / maxHealth;
         currentEagleSpawnInterval = Mathf.Lerp(minEagleSpawnInterval, maxEagleSpawnInterval, healthPercent);
 
@@ -100,7 +118,6 @@ public class EagleLord : MonoBehaviour
         if (playerObj != null && regularEagleLockOn != null)
         {
             Instantiate(regularEagleLockOn, playerObj.transform.position, Quaternion.identity);
-            Debug.Log("Final Stand: Spawned eagle at player position");
         }
     }
 
@@ -120,6 +137,16 @@ public class EagleLord : MonoBehaviour
                     turret.DisableShooting();
                 }
             }
+        }
+    }
+
+    public void UpdateEncounterHealth(int damage)
+    {
+        currentEncounterHealth -= damage;
+
+        if (bossHealthBarUI != null)
+        {
+            bossHealthBarUI.UpdateHealth(currentEncounterHealth, totalEncounterHealth);
         }
     }
 
@@ -154,12 +181,10 @@ public class EagleLord : MonoBehaviour
     {
         if (isInOffScreenSequence)
         {
-            Debug.Log("Already in off-screen sequence, skipping...");
             yield break;
         }
 
         isInOffScreenSequence = true;
-        Debug.Log("Starting off-screen sequence");
 
         BossPhase previousPhase = currentPhase;
         currentPhase = BossPhase.OffScreen;
@@ -171,7 +196,6 @@ public class EagleLord : MonoBehaviour
         SetTurretsActive(false);
 
         string originalTag = gameObject.tag;
-        Debug.Log("Boss tag before off-screen: " + originalTag);
         gameObject.tag = "Untagged";
 
         EagleLordTurret[] turrets = GetComponentsInChildren<EagleLordTurret>();
@@ -197,20 +221,15 @@ public class EagleLord : MonoBehaviour
             yield return null;
         }
 
-        Debug.Log("Boss reached off-screen position");
         yield return new WaitForSeconds(offScreenDuration);
 
-        // Trigger eagle barrage
         if (eagleSpawner != null)
         {
-            Debug.Log("Spawning eagle barrage");
             eagleSpawner.SpawnFullBarrage();
         }
 
-        // Wait for all 5 eagle waves to complete
         yield return new WaitForSeconds(barrageWaitTime);
 
-        Debug.Log("Barrage complete, boss returning");
         Vector3 returnPos = new Vector3(0, normalY, transform.position.z);
         while (transform.position.y > normalY + 0.1f)
         {
@@ -224,7 +243,6 @@ public class EagleLord : MonoBehaviour
         }
         SetTurretsActive(true);
         gameObject.tag = originalTag;
-        Debug.Log("Boss tag after off-screen: " + gameObject.tag);
 
         foreach (EagleLordTurret turret in turrets)
         {
@@ -234,7 +252,6 @@ public class EagleLord : MonoBehaviour
             }
         }
 
-        // Check if both turrets destroyed - activate Final Stand
         if (leftTurretDestroyed && rightTurretDestroyed)
         {
             currentPhase = BossPhase.FinalStand;
@@ -247,21 +264,22 @@ public class EagleLord : MonoBehaviour
         }
 
         isInOffScreenSequence = false;
-        Debug.Log("Off-screen sequence complete. Current phase: " + currentPhase);
     }
 
     public void TakeDamage(int damage)
     {
-        Debug.Log("TakeDamage called! Current phase: " + currentPhase + ", Tag: " + gameObject.tag + ", HP: " + currentHealth);
-
         if (currentPhase == BossPhase.TurretsActive || currentPhase == BossPhase.OffScreen)
         {
-            Debug.Log("Boss is invulnerable!");
             return;
         }
 
         currentHealth -= damage;
-        Debug.Log("Boss took damage! New HP: " + currentHealth);
+        currentEncounterHealth -= damage;
+
+        if (bossHealthBarUI != null)
+        {
+            bossHealthBarUI.UpdateHealth(currentEncounterHealth, totalEncounterHealth);
+        }
 
         if (currentHealth <= 0)
         {
@@ -277,17 +295,10 @@ public class EagleLord : MonoBehaviour
 
     void OnTriggerEnter2D(Collider2D other)
     {
-        Debug.Log("Boss collision detected! Hit by: " + other.gameObject.name + " with tag: " + other.tag);
-
         if (other.CompareTag("Projectile"))
         {
-            Debug.Log("Confirmed projectile hit - calling TakeDamage");
             TakeDamage(1);
             Destroy(other.gameObject);
-        }
-        else
-        {
-            Debug.Log("Not a projectile, ignoring");
         }
     }
 }

@@ -4,12 +4,22 @@ public class PlayerLaserScript : MonoBehaviour
 {
     public float speed = 10f;
     public bool isEnemyLaser = false;
-    
+
     private Rigidbody2D rb;
     private Transform ignoreRail;
-    
+
     void Start()
     {
+        rb = GetComponent<Rigidbody2D>();
+
+        // PHYSICS FIXES - prevent weird spinning/teleporting
+        if (rb != null)
+        {
+            rb.gravityScale = 0f; // No gravity
+            rb.constraints = RigidbodyConstraints2D.FreezeRotation; // Don't spin
+            rb.collisionDetectionMode = CollisionDetectionMode2D.Continuous; // Better for fast objects
+        }
+
         Destroy(gameObject, 3f);
     }
 
@@ -19,12 +29,9 @@ public class PlayerLaserScript : MonoBehaviour
         {
             rb = GetComponent<Rigidbody2D>();
         }
-
         Vector3 direction = dir.normalized;
-
         float angle = Mathf.Atan2(direction.y, direction.x) * Mathf.Rad2Deg;
         transform.rotation = Quaternion.Euler(0, 0, angle);
-
         if (rb != null)
         {
             rb.linearVelocity = direction * speed;
@@ -47,7 +54,7 @@ public class PlayerLaserScript : MonoBehaviour
         {
             return;
         }
-        
+
         if (isEnemyLaser && obj.CompareTag("Obstacle"))
         {
             return;
@@ -57,15 +64,11 @@ public class PlayerLaserScript : MonoBehaviour
         {
             return;
         }
-        
+
         if (obj.CompareTag("Rail") ||
             obj.CompareTag("Obstacle") ||
-            obj.CompareTag("Player") ||
-            obj.CompareTag("LeftBorder") ||
-            obj.CompareTag("RightBorder") ||
-            obj.CompareTag("TopBorder") ||
-            obj.CompareTag("BottomBorder"))
-        { 
+            obj.CompareTag("Player"))
+        {
             Destroy(gameObject);
         }
     }

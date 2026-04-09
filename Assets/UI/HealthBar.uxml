@@ -1,3 +1,5 @@
 <ui:UXML xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:ui="UnityEngine.UIElements" xmlns:uie="UnityEditor.UIElements" noNamespaceSchemaLocation="../../UIElementsSchema/UIElements.xsd" editor-extension-mode="False">
-    <ui:ProgressBar value="2" high-value="2" name="Health" style="width: 84px; height: 23px; position: absolute;" />
+    <ui:Template name="BossHealthBar" src="project://database/Assets/UI/BossHealthBar.uxml?fileID=9197481963319205126&amp;guid=38fc4fbbfc3283541b2009cf16c8ab85&amp;type=3#BossHealthBar"/>
+    <ui:ProgressBar value="2" high-value="2" name="Health" style="width: 84px; height: 23px; position: absolute;"/>
+    <ui:Instance template="BossHealthBar" name="TemplateContainer"/>
 </ui:UXML>

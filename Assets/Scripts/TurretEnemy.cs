@@ -6,23 +6,10 @@ public class TurretEnemy : MonoBehaviour
     public int health = 2;
     public GameObject TurretHead;
 
-    void Start()
-    {
-        
-    }
-
-    void Update()
-    {
-
-    }
-
     public void TakeDamage(int damage)
     {
         health -= damage;
-        if (health <= 0) // Changed from < to <=
-        {
-            die();
-        }
+        if (health <= 0) die();
     }
 
     void OnTriggerEnter2D(Collider2D other)
@@ -31,17 +18,15 @@ public class TurretEnemy : MonoBehaviour
         if (other.CompareTag("Projectile"))
         {
             TakeDamage(1);
-            Destroy(other.gameObject); // Destroy the BULLET, not the turret
+            Destroy(other.gameObject);
         }
     }
 
     void die()
     {
-        if (spawnPoint != null) // Fixed: was == null, should be != null
-        {
-            spawnPoint.isOccupied = false;
-        }
-        FindObjectOfType<WaveManager>().EnemyDestroyed(); // Changed from EnemyKilled
+        if (spawnPoint != null) spawnPoint.isOccupied = false;
+        WaveManager wm = FindObjectOfType<WaveManager>();
+        if (wm != null) wm.EnemyDestroyed();
         Destroy(gameObject);
     }
 }

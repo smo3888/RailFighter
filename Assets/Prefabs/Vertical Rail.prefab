@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: 8960999438694355442}
   m_Layer: 3
   m_Name: Vertical Rail
-  m_TagString: Rail
+  m_TagString: RailVertical
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
