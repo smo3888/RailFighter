@@ -71,12 +71,18 @@ public class PlayerControllerRailFighter : MonoBehaviour
     private const string HORIZONTAL_RAIL_TAG = "RailHorizontal";
     private const string VERTICAL_RAIL_TAG = "RailVertical";
 
+    // ── Power-Up State ───────────────────────────────────────────────────────
+    private bool isShielded = false;
+    private bool isInvincible = false;
+    private bool isTripleShotActive = false;
+    private bool isPiercingShotActive = false;
+
+    // ────────────────────────────────────────────────────────────────────────
     void Start()
     {
         lastFireTime = Time.time;
         currentHealth = maxHealth;
 
-        // Check if we have a dungeon return position to apply
         bool hasReturnData = false;
         if (GameManager.Instance != null)
         {
@@ -87,12 +93,10 @@ public class PlayerControllerRailFighter : MonoBehaviour
 
         if (hasReturnData)
         {
-            // Returning from a challenge room — coroutine will handle positioning
             float x = GameManager.Instance.Data.dungeonReturnX;
             float y = GameManager.Instance.Data.dungeonReturnY;
             string railName = GameManager.Instance.Data.dungeonReturnRailName;
 
-            // Still snap to nearest rail initially so the player isn't in limbo
             Transform nearest = FindNearestRailOfAnyType();
             if (nearest != null)
             {
@@ -106,11 +110,9 @@ public class PlayerControllerRailFighter : MonoBehaviour
         }
         else
         {
-            // Normal spawn — use defaultSpawnPoint if assigned, otherwise use prefab position
             if (defaultSpawnPoint != null)
                 transform.position = new Vector3(defaultSpawnPoint.position.x, defaultSpawnPoint.position.y, 0);
 
-            // Snap to nearest rail from spawn position
             Transform nearest = FindNearestRailOfAnyType();
             if (nearest != null)
             {
@@ -143,7 +145,6 @@ public class PlayerControllerRailFighter : MonoBehaviour
 
     IEnumerator ApplyReturnPosition(float x, float y, string railName)
     {
-        // Wait one frame so all rails are fully initialized
         yield return null;
 
         GameObject railObj = GameObject.Find(railName);
@@ -177,17 +178,14 @@ public class PlayerControllerRailFighter : MonoBehaviour
             }
         }
 
-        // Snap camera instantly to new position so it doesn't drag across the map
         if (Camera.main != null)
             Camera.main.transform.position = new Vector3(transform.position.x, transform.position.y, Camera.main.transform.position.z);
 
-        // Clear the return data so it doesn't re-apply on next load
         GameManager.Instance.Data.dungeonReturnX = 0f;
         GameManager.Instance.Data.dungeonReturnY = 0f;
         GameManager.Instance.Data.dungeonReturnRailName = "";
     }
 
-    // Returns the name of the rail the player is currently standing on
     public string GetCurrentRailName()
     {
         return currentRail != null ? currentRail.name : "";
@@ -479,6 +477,7 @@ public class PlayerControllerRailFighter : MonoBehaviour
     // ── Health ───────────────────────────────────────────────────────────────
     public void TakeDamage(int damage)
     {
+        if (isInvincible || isShielded) return;
         if (Time.time < lastHitTime + invincibilityTime) return;
         lastHitTime = Time.time;
         currentHealth -= damage;
@@ -492,6 +491,14 @@ public class PlayerControllerRailFighter : MonoBehaviour
         currentHealth += amount;
         if (currentHealth > maxHealth) currentHealth = maxHealth;
         if (healthBar != null) healthBar.value = currentHealth;
+        UpdateHeartDisplay();
+    }
+
+    public int GetCurrentHealth() { return currentHealth; }
+
+    public void SetHealth(int amount)
+    {
+        currentHealth = Mathf.Clamp(amount, 0, maxHealth);
         UpdateHeartDisplay();
     }
 
@@ -603,7 +610,18 @@ public class PlayerControllerRailFighter : MonoBehaviour
             Vector3 spawnPos = transform.position + (direction * 0.5f);
             GameObject laser = Instantiate(PlayerLaser, spawnPos, Quaternion.identity);
             PlayerLaserScript laserScript = laser.GetComponent<PlayerLaserScript>();
-            if (laserScript != null) laserScript.SetDirection(direction);
+            if (laserScript != null)
+            {
+                laserScript.SetDirection(direction);
+                laserScript.isPiercing = isPiercingShotActive;
+            }
+
+            // Triple shot — spawn two extra lasers at ±15 degrees
+            if (isTripleShotActive)
+            {
+                SpawnLaserWithAngle(direction, 15f);
+                SpawnLaserWithAngle(direction, -15f);
+            }
         }
     }
 
@@ -612,14 +630,132 @@ public class PlayerControllerRailFighter : MonoBehaviour
         Vector3 direction = Vector3.right;
         GameObject laser = Instantiate(PlayerLaser, transform.position, Quaternion.identity);
         PlayerLaserScript laserScript = laser.GetComponent<PlayerLaserScript>();
-        if (laserScript != null) laserScript.SetDirection(direction);
+        if (laserScript != null)
+        {
+            laserScript.SetDirection(direction);
+            laserScript.isPiercing = isPiercingShotActive;
+        }
+
+        if (isTripleShotActive)
+        {
+            SpawnLaserWithAngle(direction, 15f);
+            SpawnLaserWithAngle(direction, -15f);
+        }
     }
 
-    public int GetCurrentHealth() { return currentHealth; }
-
-    public void SetHealth(int amount)
+    void SpawnLaserWithAngle(Vector3 baseDir, float angleDeg)
     {
-        currentHealth = Mathf.Clamp(amount, 0, maxHealth);
-        UpdateHeartDisplay();
+        if (PlayerLaser == null) return;
+        Vector3 rotated = Quaternion.Euler(0, 0, angleDeg) * baseDir;
+        Vector3 spawnPos = transform.position + (rotated * 0.5f);
+        GameObject laser = Instantiate(PlayerLaser, spawnPos, Quaternion.identity);
+        PlayerLaserScript laserScript = laser.GetComponent<PlayerLaserScript>();
+        if (laserScript != null)
+        {
+            laserScript.SetDirection(rotated);
+            laserScript.isPiercing = isPiercingShotActive;
+        }
+    }
+
+    // ── Power-Up Effects ─────────────────────────────────────────────────────
+
+    public void ActivateShield(float duration)
+    {
+        StartCoroutine(ShieldRoutine(duration));
+    }
+
+    IEnumerator ShieldRoutine(float duration)
+    {
+        isShielded = true;
+        if (playerSpriteRenderer != null)
+            playerSpriteRenderer.color = Color.cyan;
+        yield return new WaitForSeconds(duration);
+        isShielded = false;
+        if (playerSpriteRenderer != null)
+            playerSpriteRenderer.color = normalColor;
+    }
+
+    public void ActivateInvincibility(float duration)
+    {
+        StartCoroutine(InvincibilityRoutine(duration));
+    }
+
+    IEnumerator InvincibilityRoutine(float duration)
+    {
+        isInvincible = true;
+        if (playerSpriteRenderer != null)
+            playerSpriteRenderer.color = Color.yellow;
+        yield return new WaitForSeconds(duration);
+        isInvincible = false;
+        if (playerSpriteRenderer != null)
+            playerSpriteRenderer.color = normalColor;
+    }
+
+    public void ActivateSpeedBurst(float multiplier, float duration)
+    {
+        StartCoroutine(SpeedBurstRoutine(multiplier, duration));
+    }
+
+    IEnumerator SpeedBurstRoutine(float multiplier, float duration)
+    {
+        moveSpeed = normalMoveSpeed * multiplier;
+        yield return new WaitForSeconds(duration);
+        moveSpeed = normalMoveSpeed;
+    }
+
+    public void ActivateRapidFire(float multiplier, float duration)
+    {
+        StartCoroutine(RapidFireRoutine(multiplier, duration));
+    }
+
+    IEnumerator RapidFireRoutine(float multiplier, float duration)
+    {
+        float originalFireRate = fireRate;
+        fireRate = fireRate / multiplier;
+        yield return new WaitForSeconds(duration);
+        fireRate = originalFireRate;
+    }
+
+    public void ActivateTripleShot(float duration)
+    {
+        StartCoroutine(TripleShotRoutine(duration));
+    }
+
+    IEnumerator TripleShotRoutine(float duration)
+    {
+        isTripleShotActive = true;
+        yield return new WaitForSeconds(duration);
+        isTripleShotActive = false;
+    }
+
+    public void ActivatePiercingShot(float duration)
+    {
+        StartCoroutine(PiercingShotRoutine(duration));
+    }
+
+    IEnumerator PiercingShotRoutine(float duration)
+    {
+        isPiercingShotActive = true;
+        yield return new WaitForSeconds(duration);
+        isPiercingShotActive = false;
+    }
+
+    public void ActivateOverdrive(float multiplier, float duration)
+    {
+        StartCoroutine(OverdriveRoutine(multiplier, duration));
+    }
+
+    IEnumerator OverdriveRoutine(float multiplier, float duration)
+    {
+        float originalFireRate = fireRate;
+        moveSpeed = normalMoveSpeed * multiplier;
+        fireRate = fireRate / multiplier;
+        if (playerSpriteRenderer != null)
+            playerSpriteRenderer.color = Color.red;
+        yield return new WaitForSeconds(duration);
+        moveSpeed = normalMoveSpeed;
+        fireRate = originalFireRate;
+        if (playerSpriteRenderer != null)
+            playerSpriteRenderer.color = normalColor;
     }
 }

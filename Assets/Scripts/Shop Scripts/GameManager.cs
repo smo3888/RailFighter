@@ -8,7 +8,7 @@ public class GameManager : MonoBehaviour
 {
     public static GameManager Instance { get; private set; }
 
-    // ── Save Data ────────────────────────────────────────────────────────────
+    // ── Save Data ──────────────────────────────────────────────────────
     [System.Serializable]
     public class SaveData
     {
@@ -19,7 +19,7 @@ public class GameManager : MonoBehaviour
         // Currency
         public int currency = 0;
 
-        // Purchased items
+        // Purchased shop items
         public List<string> purchasedItemIDs = new List<string>();
 
         // Keys
@@ -50,9 +50,15 @@ public class GameManager : MonoBehaviour
         public float dungeonReturnX = 0f;
         public float dungeonReturnY = 0f;
         public string dungeonReturnRailName = "";
-
         public float challengeRoomEntryX = 0f;
         public float challengeRoomEntryY = 0f;
+
+        // ── Power-Up System ──────────────────────────────────────────
+        // All power-up IDs the player has ever collected
+        public List<string> collectedPowerUpIDs = new List<string>();
+        // Currently slotted power-ups (empty string = nothing equipped)
+        public string equippedOffensiveID = "";
+        public string equippedDefensiveID = "";
     }
 
     public SaveData Data = new SaveData();
@@ -72,7 +78,7 @@ public class GameManager : MonoBehaviour
     private string savePath;
     private bool isTransitioning = false;
 
-    // ── Singleton Setup ──────────────────────────────────────────────────────
+    // ── Singleton Setup ────────────────────────────────────────────────
     void Awake()
     {
         if (Instance != null && Instance != this)
@@ -82,8 +88,15 @@ public class GameManager : MonoBehaviour
         }
         Instance = this;
         DontDestroyOnLoad(gameObject);
-        savePath = Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.Desktop), "RailFighterSaves", "save.json");
-        Directory.CreateDirectory(Path.Combine(System.Environment.GetFolderPath(System.Environment.SpecialFolder.Desktop), "RailFighterSaves"));
+
+        savePath = Path.Combine(
+            System.Environment.GetFolderPath(System.Environment.SpecialFolder.Desktop),
+            "RailFighterSaves", "save.json");
+
+        Directory.CreateDirectory(Path.Combine(
+            System.Environment.GetFolderPath(System.Environment.SpecialFolder.Desktop),
+            "RailFighterSaves"));
+
         LoadGame();
     }
 
@@ -97,6 +110,7 @@ public class GameManager : MonoBehaviour
             Debug.Log("Autosaved!");
         }
 
+        // Debug key
         if (Input.GetKeyDown(KeyCode.K))
         {
             Data.keys++;
@@ -104,7 +118,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // ── Save / Load ──────────────────────────────────────────────────────────
+    // ── Save / Load ────────────────────────────────────────────────────
     public void SaveGame(bool savePosition = true)
     {
         if (savePosition)
@@ -128,6 +142,13 @@ public class GameManager : MonoBehaviour
         {
             string json = File.ReadAllText(savePath);
             Data = JsonUtility.FromJson<SaveData>(json);
+
+            // Null-guard lists (old saves won't have these fields)
+            if (Data.purchasedItemIDs == null)
+                Data.purchasedItemIDs = new List<string>();
+            if (Data.collectedPowerUpIDs == null)
+                Data.collectedPowerUpIDs = new List<string>();
+
             Debug.Log("Game loaded.");
         }
         else
@@ -135,6 +156,10 @@ public class GameManager : MonoBehaviour
             Data = new SaveData();
             Debug.Log("No save found — starting fresh.");
         }
+
+        // Re-sync PowerUpManager if it's already alive (scene reload case)
+        if (PowerUpManager.Instance != null)
+            PowerUpManager.Instance.LoadEquippedFromSave();
     }
 
     public void DeleteSave()
@@ -145,7 +170,7 @@ public class GameManager : MonoBehaviour
         Debug.Log("Save deleted.");
     }
 
-    // ── Currency ─────────────────────────────────────────────────────────────
+    // ── Currency ───────────────────────────────────────────────────────
     public void AddCurrency(int amount)
     {
         Data.currency += amount;
@@ -159,11 +184,9 @@ public class GameManager : MonoBehaviour
         return true;
     }
 
-    // ── Purchased Items ──────────────────────────────────────────────────────
-    public bool HasPurchasedItem(string itemID)
-    {
-        return Data.purchasedItemIDs.Contains(itemID);
-    }
+    // ── Purchased Shop Items ───────────────────────────────────────────
+    public bool HasPurchasedItem(string itemID) =>
+        Data.purchasedItemIDs.Contains(itemID);
 
     public void AddPurchasedItem(string itemID)
     {
@@ -171,12 +194,20 @@ public class GameManager : MonoBehaviour
             Data.purchasedItemIDs.Add(itemID);
     }
 
-    public void RemovePurchasedItem(string itemID)
-    {
+    public void RemovePurchasedItem(string itemID) =>
         Data.purchasedItemIDs.Remove(itemID);
+
+    // ── Power-Up Helpers ───────────────────────────────────────────────
+    public bool HasCollectedPowerUp(string powerUpID) =>
+        Data.collectedPowerUpIDs.Contains(powerUpID);
+
+    public void AddCollectedPowerUp(string powerUpID)
+    {
+        if (!Data.collectedPowerUpIDs.Contains(powerUpID))
+            Data.collectedPowerUpIDs.Add(powerUpID);
     }
 
-    // ── Challenge Room Completion ─────────────────────────────────────────────
+    // ── Challenge Room Completion ──────────────────────────────────────
     public void CompleteChallenge(int challengeNumber)
     {
         switch (challengeNumber)
@@ -225,7 +256,7 @@ public class GameManager : MonoBehaviour
     public bool IsBossRoomUnlocked() => Data.bossRoomUnlocked;
     public bool IsShopUnlocked() => Data.shopUnlocked;
 
-    // ── Player Health Sync ───────────────────────────────────────────────────
+    // ── Player Health Sync ─────────────────────────────────────────────
     public void SyncPlayerHealth()
     {
         PlayerControllerRailFighter player = FindObjectOfType<PlayerControllerRailFighter>();
@@ -235,7 +266,7 @@ public class GameManager : MonoBehaviour
 
     public int GetSavedHealth() => Data.currentHealth;
 
-    // ── Scene Transitions ────────────────────────────────────────────────────
+    // ── Scene Transitions ──────────────────────────────────────────────
     public void LoadScene(string sceneName)
     {
         if (isTransitioning) return;
@@ -278,6 +309,10 @@ public class GameManager : MonoBehaviour
         if (player != null)
             player.SetHealth(Data.currentHealth);
 
+        // Re-sync power-up manager on scene load (equipped slots, no cooldown reset needed)
+        if (PowerUpManager.Instance != null)
+            PowerUpManager.Instance.LoadEquippedFromSave();
+
         yield return StartCoroutine(Fade(1f, 0f));
         isTransitioning = false;
     }
@@ -296,7 +331,7 @@ public class GameManager : MonoBehaviour
         }
     }
 
-    // ── Room Visit Tracking ──────────────────────────────────────────────────
+    // ── Room Visit Tracking ────────────────────────────────────────────
     public void MarkRoomVisited(int roomIndex)
     {
         if (roomIndex >= 0 && roomIndex < Data.visitedRooms.Length)
@@ -310,7 +345,7 @@ public class GameManager : MonoBehaviour
         return false;
     }
 
-    // ── New Game ─────────────────────────────────────────────────────────────
+    // ── New Game ───────────────────────────────────────────────────────
     public void StartNewGame()
     {
         DeleteSave();
