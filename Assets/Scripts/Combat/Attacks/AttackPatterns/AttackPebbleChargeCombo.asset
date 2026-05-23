@@ -1,0 +1,30 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: d88365db9be37074185791cd7764657f, type: 3}
+  m_Name: AttackPebbleChargeCombo
+  m_EditorClassIdentifier: Assembly-CSharp::PebbleChargeComboSO
+  patternName: Pebble Attack
+  aggressive:
+    telegraphDuration: 0.25
+    speed: 10
+    activeDuration: 0.4
+    decayDuration: 0.7
+    driftSpeed: 6
+  passive:
+    telegraphDuration: 2
+    speed: 5
+    activeDuration: 0.25
+    decayDuration: 3.08
+    driftSpeed: 2
+  aggroPersistenceDuration: 5
+  spriteRotationOffset: 180.2
+  playerTag: Player

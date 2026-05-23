@@ -33,13 +33,13 @@ TagManager:
   - Rails
   - Water
   - UI
-  - Coins
-  - Obstacles
-  - Platform
-  - Projectile
-  - Enemy Laser
+  - 
+  - Enemy
+  - 
+  - 
+  - EnemyProjectile
   - Border
-  - Player Laser
+  - PlayerProjectile
   - 
   - Player
   - 
@@ -63,11 +63,29 @@ TagManager:
   - name: Default
     uniqueID: 0
     locked: 0
-  - name: Health
-    uniqueID: 763622273
+  - name: FarBackground
+    uniqueID: 1098071095
+    locked: 0
+  - name: MidBackground
+    uniqueID: 1481576441
+    locked: 0
+  - name: NearBackground
+    uniqueID: 579689721
+    locked: 0
+  - name: Gameplay
+    uniqueID: 2014212751
+    locked: 0
+  - name: Foreground
+    uniqueID: 2496398733
     locked: 0
   - name: Border
     uniqueID: 3122881621
+    locked: 0
+  - name: Health
+    uniqueID: 763622273
+    locked: 0
+  - name: UI
+    uniqueID: 561674229
     locked: 0
   m_RenderingLayers:
   - Default

@@ -1,0 +1,28 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 905101f0df2ad384ab230e9d5922003a, type: 3}
+  m_Name: Movement_Wander_Skittish
+  m_EditorClassIdentifier: Assembly-CSharp::WanderMovementSO
+  patternName: Unnamed Pattern
+  moveSpeed: 6
+  boundsMin: {x: -24.999996, y: -11.125359}
+  boundsMax: {x: 35.572422, y: 15.052067}
+  minIdleTime: 3
+  maxIdleTime: 7
+  minMoveTime: 2
+  maxMoveTime: 5
+  moveHorizontal: 1
+  moveVertical: 0
+  awareness: 1
+  awarenessRange: 8.28
+  awarenessStrength: 0.298
+  playerTag: Player

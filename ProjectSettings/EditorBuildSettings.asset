@@ -71,6 +71,24 @@ EditorBuildSettings:
   - enabled: 1
     path: Assets/Scenes/Shop.unity
     guid: 136818bbbe52b9a46bd44b0d4e8301f2
+  - enabled: 1
+    path: Assets/Scenes/_Bootstrap.unity
+    guid: c96e8ca7f21ff4740b3528ccf8a9f759
+  - enabled: 1
+    path: Assets/Scenes/Dungeon/Zone 1 Area 1/Explore/Explore 1.unity
+    guid: de6014021830de64b8307c1673f57faf
+  - enabled: 1
+    path: Assets/Scenes/_MapEditor.unity
+    guid: e15157c89ff7c6a45a04096d5ac35529
+  - enabled: 1
+    path: Assets/Scenes/Dungeon/Zone 1 Area 1/Start Room.unity
+    guid: 118826e9d9ad38d49a5f9cfce5fa2bfe
+  - enabled: 1
+    path: Assets/Scenes/Dungeon/Zone 1 Area 1/Action/Action 1.unity
+    guid: 89283311b2b32ce429cdec1c72a2320c
+  - enabled: 1
+    path: Assets/Scenes/Dungeon/Zone 1 Area 1/Action/Action 2.unity
+    guid: cf2335cb5915ca6409288366a7c351d8
   m_configObjects:
     com.unity.input.settings.actions: {fileID: -944628639613478452, guid: 2bcd2660ca9b64942af0de543d8d7100, type: 3}
   m_UseUCBPForAssetBundles: 0

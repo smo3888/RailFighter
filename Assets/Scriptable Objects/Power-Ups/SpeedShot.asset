@@ -9,16 +9,16 @@ MonoBehaviour:
   m_GameObject: {fileID: 0}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: edac693c7a2b54be394f0c988898d036, type: 3}
+  m_Script: {fileID: 11500000, guid: 777245958877e9a4aa7b9052d66a461b, type: 3}
   m_Name: SpeedShot
   m_EditorClassIdentifier: Assembly-CSharp::PowerUpData
-  powerUpID: speed_shot
+  powerUpID: SpeedShot
   displayName: Speed Shot
-  description: Bullets Fire Faster for a limited duration
-  icon: {fileID: 0}
+  description: The player shoots faster
+  icon: {fileID: -204125556448911238, guid: 5b5f9db83aeb53d409e382e083fea13e, type: 3}
   slotColor: {r: 1, g: 1, b: 1, a: 1}
   powerUpType: 0
   effectType: 0
-  effectDuration: 10
-  effectValue: 2.08
-  cooldownDuration: 10
+  effectDuration: 5
+  effectValue: 2
+  cooldownDuration: 15

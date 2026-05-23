@@ -1,0 +1,20 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6c9ea55437696a045b2be8ef58192909, type: 3}
+  m_Name: AttackAimedShot
+  m_EditorClassIdentifier: Assembly-CSharp::AimedShotSO
+  patternName: EnemyLaser
+  attack: {fileID: 11400000, guid: 6364b1d18c90d174c8044304568af3f0, type: 2}
+  detectionRange: 8
+  playerTag: Player
+  fireInterval: 1.5
+  aimUpDelay: 0.3
