@@ -13,7 +13,7 @@ MonoBehaviour:
   m_Name: Movement_Wander_Skittish
   m_EditorClassIdentifier: Assembly-CSharp::WanderMovementSO
   patternName: Unnamed Pattern
-  moveSpeed: 6
+  moveSpeed: 10
   boundsMin: {x: -24.999996, y: -11.125359}
   boundsMax: {x: 35.572422, y: 15.052067}
   minIdleTime: 3

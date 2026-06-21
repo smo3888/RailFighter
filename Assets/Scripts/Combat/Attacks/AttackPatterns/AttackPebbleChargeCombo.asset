@@ -14,17 +14,17 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::PebbleChargeComboSO
   patternName: Pebble Attack
   aggressive:
-    telegraphDuration: 0.25
-    speed: 10
+    telegraphDuration: 0.1
+    speed: 20
     activeDuration: 0.4
-    decayDuration: 0.7
-    driftSpeed: 6
+    decayDuration: 0.2
+    driftSpeed: 10
   passive:
     telegraphDuration: 2
     speed: 5
     activeDuration: 0.25
-    decayDuration: 3.08
-    driftSpeed: 2
+    decayDuration: 1
+    driftSpeed: 5
   aggroPersistenceDuration: 5
   spriteRotationOffset: 180.2
   playerTag: Player

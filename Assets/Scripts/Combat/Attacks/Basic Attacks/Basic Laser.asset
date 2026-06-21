@@ -13,9 +13,9 @@ MonoBehaviour:
   m_Name: Basic Laser
   m_EditorClassIdentifier: Assembly-CSharp::LaserAttackSO
   attackName: Basic Laser
-  cooldown: 1
+  cooldown: 0.7
   projectilePrefab: {fileID: 3145960565468545311, guid: e9754bf5305793b49aa9bf120d28ce33, type: 3}
   spawnOffset: 0.5
   damage: 1
-  speed: 10
+  speed: 15
   damageType: 0
